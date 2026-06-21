@@ -1,0 +1,7 @@
+export enum QueueStatus {
+  WAITING = 'WAITING',
+  CALLED = 'CALLED',
+  IN_PROGRESS = 'IN_PROGRESS',
+  FINISHED = 'FINISHED',
+  ABSENT = 'ABSENT',
+}
