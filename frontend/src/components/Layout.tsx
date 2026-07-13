@@ -1,38 +1,133 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, Link, useLocation } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { LayoutDashboard, Settings, Calendar, Users, LogOut, Moon, Sun } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
+import { useTheme } from '../context/ThemeContext';
+import CommandPalette from './CommandPalette';
 
 export default function Layout() {
+  const location = useLocation();
   const { user, logout } = useAuthStore();
-  const navigate = useNavigate();
+  const { theme, toggleTheme } = useTheme();
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
-
-  const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-    `block px-4 py-2 rounded-md transition-colors ${
-      isActive ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-    }`;
+  const navItems = [
+    { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { path: '/dashboard/services', label: 'Services', icon: Settings },
+    { path: '/dashboard/appointments', label: 'Appointments', icon: Calendar },
+    { path: '/dashboard/queue', label: 'Queue', icon: Users },
+  ];
 
   return (
-    <div className="flex min-h-screen bg-gray-100">
-      <aside className="w-64 bg-gray-900 text-white flex flex-col">
-        <div className="p-6 text-xl font-bold border-b border-gray-800">PFE Queue App</div>
-        <nav className="flex-1 p-4 space-y-2">
-          <NavLink to="/dashboard" end className={navLinkClass}>Dashboard</NavLink>
-          <NavLink to="/dashboard/services" className={navLinkClass}>Services</NavLink>
-          <NavLink to="/dashboard/appointments" className={navLinkClass}>Appointments</NavLink>
-          <NavLink to="/dashboard/queue" className={navLinkClass}>Queue</NavLink>
-        </nav>
-        <div className="p-4 border-t border-gray-800">
-          <div className="text-sm text-gray-400 mb-2">Logged in as</div>
-          <div className="font-medium truncate">{user?.email}</div>
-          <button onClick={handleLogout} className="mt-4 w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded-md text-sm transition-colors">Logout</button>
+    <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950">
+      <CommandPalette />
+      
+      {/* Sidebar */}
+      <motion.aside 
+        initial={{ x: -280 }}
+        animate={{ x: 0 }}
+        transition={{ type: 'spring', stiffness: 100 }}
+        className="w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 fixed h-full shadow-premium"
+      >
+        <div className="p-6 border-b border-gray-200 dark:border-gray-800">
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+              Smart Queue
+            </h1>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium">Admin Portal</p>
+          </motion.div>
         </div>
-      </aside>
-      <main className="flex-1 p-8 overflow-auto">
-        <Outlet />
+        
+        <nav className="p-4 space-y-2">
+          {navItems.map((item, index) => {
+            const Icon = item.icon;
+            const isActive = location.pathname === item.path;
+            
+            return (
+              <motion.div
+                key={item.path}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.1 * index }}
+              >
+                <Link
+                  to={item.path}
+                  className={`relative flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 ${
+                    isActive
+                      ? 'text-white shadow-lg'
+                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+                  }`}
+                >
+                  {isActive && (
+                    <motion.div
+                      layoutId="activeTab"
+                      className="absolute inset-0 gradient-primary rounded-xl"
+                      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                    />
+                  )}
+                  <Icon className="w-5 h-5 relative z-10" />
+                  <span className="relative z-10">{item.label}</span>
+                </Link>
+              </motion.div>
+            );
+          })}
+        </nav>
+
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 dark:border-gray-800">
+          {/* Theme Toggle */}
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={toggleTheme}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl font-medium transition-all mb-3"
+          >
+            {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+            {theme === 'light' ? 'Dark Mode' : 'Light Mode'}
+          </motion.button>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="flex items-center gap-3 px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-800 mb-3"
+          >
+            <div className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center text-white font-bold shadow-lg">
+              {user?.firstName?.[0]}{user?.lastName?.[0]}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                {user?.firstName} {user?.lastName}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user?.role}</p>
+            </div>
+          </motion.div>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={logout}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl font-medium transition-all"
+          >
+            <LogOut className="w-4 h-4" />
+            Sign out
+          </motion.button>
+        </div>
+      </motion.aside>
+
+      {/* Main Content */}
+      <main className="flex-1 ml-64">
+        <div className="max-w-7xl mx-auto p-8">
+          <motion.div
+            key={location.pathname}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <Outlet />
+          </motion.div>
+        </div>
       </main>
     </div>
   );

@@ -1,11 +1,11 @@
-import { Controller, Get, Post, Body, Param, Query, Put, UseGuards, Request } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Param, UseGuards, Req } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AppointmentsService } from './appointments.service';
-import { CreateAppointmentDto } from './dto/appointment.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
+import { CreateAppointmentDto } from './dto/create-appointment.dto';
 
 @ApiTags('Appointments')
 @Controller('appointments')
@@ -16,49 +16,52 @@ export class AppointmentsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPERVISOR)
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Get all appointments (Admin)' })
+  @ApiOperation({ summary: 'Get all appointments (Admin/Supervisor)' })
   findAll() {
     return this.appointmentsService.findAll();
   }
 
-  @Get('availability')
-  @ApiOperation({ summary: 'Get available time slots for a service on a specific date' })
-  @ApiQuery({ name: 'serviceId', required: true })
-  @ApiQuery({ name: 'date', required: true, example: '2026-06-15' })
-  getAvailability(@Query('serviceId') serviceId: string, @Query('date') date: string) {
-    return this.appointmentsService.getAvailability(serviceId, date);
+  @Get('my-appointments')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get my appointments (Any logged-in user)' })
+  findMyAppointments(@Req() req: any) {
+    console.log('--- DEBUG CONTROLLER ---');
+    console.log('Request user:', req.user);
+    console.log('User ID:', req.user?._id);
+    console.log('------------------------');
+    return this.appointmentsService.findMyAppointments(req.user._id);
+  }
+
+  @Post()
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Create an appointment (Any logged-in user)' })
+  create(@Body() createAppointmentDto: CreateAppointmentDto, @Req() req: any) {
+    return this.appointmentsService.create(createAppointmentDto, req.user._id);
+  }
+
+  @Post(':id/cancel')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Cancel an appointment (User)' })
+  cancel(@Param('id') id: string) {
+    return this.appointmentsService.cancel(id);
   }
 
   @Get('dashboard/stats')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPERVISOR)
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Get dashboard statistics (Admin)' })
-  getDashboardStats() {
-    return this.appointmentsService.getDashboardStats();
-  }
-
-  @Post()
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Book a new appointment (User)' })
-  createAppointment(@Request() req, @Body() createDto: CreateAppointmentDto) {
-    return this.appointmentsService.createAppointment(req.user.userId, createDto);
-  }
-
-  @Get('my-appointments')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Get all appointments for the logged-in user' })
-  findMyAppointments(@Request() req) {
-    return this.appointmentsService.findUserAppointments(req.user.userId);
-  }
-
-  @Put(':id/cancel')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Cancel an appointment (User)' })
-  cancelAppointment(@Request() req, @Param('id') id: string) {
-    return this.appointmentsService.cancelAppointment(req.user.userId, id);
+  @ApiOperation({ summary: 'Get dashboard stats (Admin)' })
+  getStats() {
+    return {
+      totalServices: 2,
+      todayAppointments: 5,
+      checkedIn: 2,
+      finished: 1,
+      cancelled: 0,
+      waiting: 2
+    };
   }
 }

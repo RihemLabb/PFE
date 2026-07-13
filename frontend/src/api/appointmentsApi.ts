@@ -38,7 +38,7 @@ export const checkInUser = async (qrToken: string) => {
 };
 
 export const callNextTicket = async (serviceId: string, counterId: string) => {
-  const { data } = await api.post(`/queue/next?serviceId=${serviceId}`, { counterId });
+  const { data } = await api.post('/queue/next', { serviceId, counterId });
   return data;
 };
 
@@ -49,5 +49,10 @@ export const startService = async (queueEntryId: string) => {
 
 export const finishService = async (queueEntryId: string) => {
   const { data } = await api.post(`/queue/${queueEntryId}/finish`);
+  return data;
+};
+
+export const markAbsent = async (queueEntryId: string) => {
+  const { data } = await api.post(`/queue/${queueEntryId}/absent`);
   return data;
 };
