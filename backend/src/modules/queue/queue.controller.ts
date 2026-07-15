@@ -5,6 +5,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
+import { CheckInDto } from './dto/check-in.dto';
 
 @ApiTags('Queue')
 @Controller('queue')
@@ -24,8 +25,8 @@ export class QueueController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Check in user via QR token' })
-  checkIn(@Body() body: { qrToken: string }) {
-    return this.queueService.checkIn(body.qrToken);
+  checkIn(@Body() checkInDto: CheckInDto) {
+    return this.queueService.checkIn(checkInDto.qrToken);
   }
 
   @Post('next')

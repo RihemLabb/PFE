@@ -21,16 +21,9 @@ export class AppointmentsService {
   }
 
   async findMyAppointments(userId: string) {
-    console.log('--- DEBUG findMyAppointments ---');
-    console.log('Received userId:', userId);
-    
     const appointments = await this.appointmentModel.find({ userId: userId })
       .populate('serviceId')
-      .sort({ date: -1, timeSlot: 1 });
-      
-    console.log('Found appointments:', appointments.length);
-    console.log('------------------------------');
-    
+      .sort({ createdAt: -1 });
     return appointments;
   }
 
@@ -38,17 +31,17 @@ export class AppointmentsService {
     const service = await this.serviceModel.findById(createAppointmentDto.serviceId);
     if (!service) throw new NotFoundException('Service not found');
 
-    const apptDate = new Date(createAppointmentDto.date);
-    apptDate.setHours(0, 0, 0, 0);
-    const nextDay = new Date(apptDate);
-    nextDay.setDate(nextDay.getDate() + 1);
-
     const currentBookings = await this.appointmentModel.countDocuments({
-      serviceId: service._id,
-      date: { $gte: apptDate, $lt: nextDay },
+      serviceId: createAppointmentDto.serviceId,
       timeSlot: createAppointmentDto.timeSlot,
       status: { $ne: AppointmentStatus.CANCELLED }
     });
+
+    console.log('--- CAPACITY CHECK ---');
+    console.log('Time Slot:', createAppointmentDto.timeSlot);
+    console.log('Current Bookings:', currentBookings);
+    console.log('Max Capacity:', service.maxCapacityPerSlot);
+    console.log('----------------------');
 
     if (currentBookings >= service.maxCapacityPerSlot) {
       throw new BadRequestException(
@@ -70,7 +63,6 @@ export class AppointmentsService {
   async cancel(id: string) {
     const appointment = await this.appointmentModel.findById(id);
     if (!appointment) throw new NotFoundException('Appointment not found');
-    
     appointment.status = AppointmentStatus.CANCELLED;
     return appointment.save();
   }

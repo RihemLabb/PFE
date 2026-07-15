@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards, Req, BadRequestException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AppointmentsService } from './appointments.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -26,11 +26,17 @@ export class AppointmentsController {
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Get my appointments (Any logged-in user)' })
   findMyAppointments(@Req() req: any) {
-    console.log('--- DEBUG CONTROLLER ---');
-    console.log('Request user:', req.user);
-    console.log('User ID:', req.user?._id);
-    console.log('------------------------');
-    return this.appointmentsService.findMyAppointments(req.user._id);
+    console.log('=== DEBUG CONTROLLER ===');
+    console.log('FULL REQ.USER:', JSON.stringify(req.user));
+    console.log('========================');
+
+    const userId = req.user?._id || req.user?.userId || req.user?.sub || req.user?.id;
+
+    if (!userId) {
+      throw new BadRequestException('User ID not found in token payload');
+    }
+
+    return this.appointmentsService.findMyAppointments(userId);
   }
 
   @Post()
@@ -38,7 +44,8 @@ export class AppointmentsController {
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Create an appointment (Any logged-in user)' })
   create(@Body() createAppointmentDto: CreateAppointmentDto, @Req() req: any) {
-    return this.appointmentsService.create(createAppointmentDto, req.user._id);
+    const userId = req.user?._id || req.user?.userId || req.user?.sub || req.user?.id;
+    return this.appointmentsService.create(createAppointmentDto, userId);
   }
 
   @Post(':id/cancel')
