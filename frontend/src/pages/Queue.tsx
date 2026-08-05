@@ -39,10 +39,13 @@ export default function Queue() {
     }
   };
 
-  useEffect(() => { 
-    console.log('Queue component mounted');
-    fetchQueue(); 
-  }, []);
+useEffect(() => { 
+  fetchQueue();
+  const interval = setInterval(() => {
+    fetchQueue();
+  }, 4000);
+  return () => clearInterval(interval);
+}, []);
 
   const handleCheckIn = async () => {
     if (!qrToken) return;

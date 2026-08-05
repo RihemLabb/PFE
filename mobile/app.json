@@ -1,12 +1,17 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "Smart Queue",
+    "slug": "smart-queue",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "mobile",
+    "scheme": "smartqueue",
     "userInterfaceStyle": "automatic",
+    "hostType": "lan",
+    "packagerOpts": {
+      "hostType": "lan",
+      "tunnel": false
+    },
     "ios": {
       "icon": "./assets/expo.icon"
     },
