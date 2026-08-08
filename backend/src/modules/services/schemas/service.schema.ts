@@ -11,17 +11,26 @@ export class Service {
   @Prop({ trim: true })
   description: string;
 
-  @Prop({ required: true, min: 1 }) 
+  @Prop({ required: true, min: 1 })
   avgDuration: number;
-  
-  @Prop({ required: true, min: 5 }) 
+
+  @Prop({ required: true, min: 5 })
   slotDuration: number;
 
-  @Prop({ required: true, min: 1, default: 1 }) 
+  @Prop({ required: true, min: 1, default: 1 })
   maxCapacityPerSlot: number;
 
-  @Prop({ type: [String], default: [] }) 
+  @Prop({ type: [String], default: [] })
   requiredDocs: string[];
+
+  @Prop({ default: '09:00' })
+  openingTime: string;
+
+  @Prop({ default: '17:00' })
+  closingTime: string;
+
+  @Prop({ type: [Number], default: [1, 2, 3, 4, 5] })
+  workingDays: number[];
 
   @Prop({ default: true })
   isActive: boolean;
