@@ -1,5 +1,14 @@
-import { Controller, Get, Post, Body, Param, UseGuards, Req, BadRequestException } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AppointmentsService } from './appointments.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -26,11 +35,7 @@ export class AppointmentsController {
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Get my appointments (Any logged-in user)' })
   findMyAppointments(@Req() req: any) {
-    console.log('=== DEBUG CONTROLLER ===');
-    console.log('FULL REQ.USER:', JSON.stringify(req.user));
-    console.log('========================');
-
-    const userId = req.user?._id || req.user?.userId || req.user?.sub || req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       throw new BadRequestException('User ID not found in token payload');
@@ -44,16 +49,27 @@ export class AppointmentsController {
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Create an appointment (Any logged-in user)' })
   create(@Body() createAppointmentDto: CreateAppointmentDto, @Req() req: any) {
-    const userId = req.user?._id || req.user?.userId || req.user?.sub || req.user?.id;
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new BadRequestException('User ID not found in token payload');
+    }
+
     return this.appointmentsService.create(createAppointmentDto, userId);
   }
 
   @Post(':id/cancel')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Cancel an appointment (User)' })
-  cancel(@Param('id') id: string) {
-    return this.appointmentsService.cancel(id);
+  @ApiOperation({ summary: 'Cancel an appointment (Owner/Admin/Supervisor)' })
+  cancel(@Param('id') id: string, @Req() req: any) {
+    const userId = req.user?.userId;
+    const role = req.user?.role as UserRole;
+
+    if (!userId || !role) {
+      throw new BadRequestException('Invalid token payload');
+    }
+
+    return this.appointmentsService.cancel(id, userId, role);
   }
 
   @Get('dashboard/stats')
@@ -68,7 +84,7 @@ export class AppointmentsController {
       checkedIn: 2,
       finished: 1,
       cancelled: 0,
-      waiting: 2
+      waiting: 2,
     };
   }
 }
