@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Service, ServiceDocument } from './schemas/service.schema';
@@ -10,11 +15,28 @@ export class ServicesService {
     @InjectModel(Service.name) private serviceModel: Model<ServiceDocument>,
   ) {}
 
+  private validateSchedule(openingTime: string, closingTime: string) {
+    if (openingTime >= closingTime) {
+      throw new BadRequestException(
+        'Closing time must be later than opening time',
+      );
+    }
+  }
+
   async create(createServiceDto: CreateServiceDto) {
-    const existing = await this.serviceModel.findOne({ name: createServiceDto.name });
+    const name = createServiceDto.name.trim();
+    const existing = await this.serviceModel.findOne({ name });
     if (existing) throw new ConflictException('Service name already exists');
-    
-    const newService = new this.serviceModel(createServiceDto);
+
+    this.validateSchedule(
+      createServiceDto.openingTime || '09:00',
+      createServiceDto.closingTime || '17:00',
+    );
+
+    const newService = new this.serviceModel({
+      ...createServiceDto,
+      name,
+    });
     return newService.save();
   }
 
@@ -29,9 +51,25 @@ export class ServicesService {
   }
 
   async update(id: string, updateServiceDto: UpdateServiceDto) {
-    const updated = await this.serviceModel.findByIdAndUpdate(id, updateServiceDto, { new: true });
-    if (!updated) throw new NotFoundException('Service not found');
-    return updated;
+    const service = await this.serviceModel.findById(id);
+    if (!service) throw new NotFoundException('Service not found');
+
+    if (updateServiceDto.name) {
+      const name = updateServiceDto.name.trim();
+      const duplicate = await this.serviceModel.findOne({
+        _id: { $ne: id },
+        name,
+      });
+      if (duplicate) throw new ConflictException('Service name already exists');
+      updateServiceDto.name = name;
+    }
+
+    const openingTime = updateServiceDto.openingTime ?? service.openingTime ?? '09:00';
+    const closingTime = updateServiceDto.closingTime ?? service.closingTime ?? '17:00';
+    this.validateSchedule(openingTime, closingTime);
+
+    Object.assign(service, updateServiceDto);
+    return service.save();
   }
 
   async remove(id: string) {
