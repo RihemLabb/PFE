@@ -1,10 +1,10 @@
-import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { create } from 'zustand';
 
-const isWeb = typeof window !== 'undefined' && window.localStorage;
+const isWeb = typeof window !== 'undefined' && Boolean(window.localStorage);
 
 interface User {
-  _id: string;
+  id: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -14,6 +14,7 @@ interface User {
 interface AuthState {
   user: User | null;
   token: string | null;
+  isHydrated: boolean;
   setAuth: (user: User, token: string) => Promise<void>;
   logout: () => Promise<void>;
   loadAuth: () => Promise<void>;
@@ -22,6 +23,7 @@ interface AuthState {
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   token: null,
+  isHydrated: false,
 
   setAuth: async (user, token) => {
     if (isWeb) {
@@ -31,7 +33,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       await AsyncStorage.setItem('user', JSON.stringify(user));
       await AsyncStorage.setItem('token', token);
     }
-    set({ user, token });
+    set({ user, token, isHydrated: true });
   },
 
   logout: async () => {
@@ -42,7 +44,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       await AsyncStorage.removeItem('user');
       await AsyncStorage.removeItem('token');
     }
-    set({ user: null, token: null });
+    set({ user: null, token: null, isHydrated: true });
   },
 
   loadAuth: async () => {
@@ -63,6 +65,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       }
     } catch (error) {
       console.error('Failed to load auth', error);
+    } finally {
+      set({ isHydrated: true });
     }
   },
 }));
