@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -36,6 +37,66 @@ export class AppointmentsService {
     return { start, end };
   }
 
+  private parseDateOnly(date: string) {
+    const parsed = new Date(`${date}T00:00:00.000Z`);
+    if (
+      Number.isNaN(parsed.getTime()) ||
+      parsed.toISOString().slice(0, 10) !== date
+    ) {
+      throw new BadRequestException('Invalid appointment date');
+    }
+    return parsed;
+  }
+
+  private timeToMinutes(time: string) {
+    const [hours, minutes] = time.split(':').map(Number);
+    return hours * 60 + minutes;
+  }
+
+  private minutesToTime(totalMinutes: number) {
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  }
+
+  private buildServiceSlots(service: ServiceDocument) {
+    const openingTime = service.openingTime || '09:00';
+    const closingTime = service.closingTime || '17:00';
+    const slotDuration = service.slotDuration;
+    const openingMinutes = this.timeToMinutes(openingTime);
+    const closingMinutes = this.timeToMinutes(closingTime);
+
+    if (openingMinutes >= closingMinutes) {
+      throw new BadRequestException(
+        'Service schedule is invalid: closing time must be after opening time',
+      );
+    }
+
+    const slots: string[] = [];
+    for (
+      let cursor = openingMinutes;
+      cursor + slotDuration <= closingMinutes;
+      cursor += slotDuration
+    ) {
+      slots.push(this.minutesToTime(cursor));
+    }
+    return slots;
+  }
+
+  private ensureBookableDate(service: ServiceDocument, appointmentDate: Date) {
+    const today = this.getUtcDayRange().start;
+    if (appointmentDate < today) {
+      throw new BadRequestException('Cannot book an appointment in the past');
+    }
+
+    const workingDays = service.workingDays?.length
+      ? service.workingDays
+      : [1, 2, 3, 4, 5];
+    if (!workingDays.includes(appointmentDate.getUTCDay())) {
+      throw new BadRequestException('This service is closed on the selected date');
+    }
+  }
+
   async findAll() {
     return this.appointmentModel
       .find()
@@ -51,6 +112,76 @@ export class AppointmentsService {
       .sort({ createdAt: -1 });
   }
 
+  async getAvailability(serviceId: string, date: string) {
+    const service = await this.serviceModel.findById(serviceId);
+    if (!service) throw new NotFoundException('Service not found');
+    if (!service.isActive) {
+      throw new BadRequestException('This service is currently unavailable');
+    }
+
+    const appointmentDate = this.parseDateOnly(date);
+    const today = this.getUtcDayRange().start;
+    if (appointmentDate < today) {
+      return {
+        serviceId,
+        serviceName: service.name,
+        date,
+        slotDuration: service.slotDuration,
+        maxCapacityPerSlot: service.maxCapacityPerSlot,
+        openingTime: service.openingTime || '09:00',
+        closingTime: service.closingTime || '17:00',
+        requiredDocs: service.requiredDocs ?? [],
+        isOpen: false,
+        slots: [],
+      };
+    }
+
+    const workingDays = service.workingDays?.length
+      ? service.workingDays
+      : [1, 2, 3, 4, 5];
+    const isOpen = workingDays.includes(appointmentDate.getUTCDay());
+    const serviceSlots = isOpen ? this.buildServiceSlots(service) : [];
+
+    const bookings = await this.appointmentModel
+      .find({
+        serviceId,
+        date: appointmentDate,
+        status: { $ne: AppointmentStatus.CANCELLED },
+      })
+      .select('timeSlot')
+      .lean();
+
+    const bookingCounts = bookings.reduce<Record<string, number>>(
+      (counts, booking: any) => {
+        counts[booking.timeSlot] = (counts[booking.timeSlot] ?? 0) + 1;
+        return counts;
+      },
+      {},
+    );
+
+    return {
+      serviceId,
+      serviceName: service.name,
+      date,
+      slotDuration: service.slotDuration,
+      maxCapacityPerSlot: service.maxCapacityPerSlot,
+      openingTime: service.openingTime || '09:00',
+      closingTime: service.closingTime || '17:00',
+      requiredDocs: service.requiredDocs ?? [],
+      isOpen,
+      slots: serviceSlots.map((time) => {
+        const booked = bookingCounts[time] ?? 0;
+        const remaining = Math.max(service.maxCapacityPerSlot - booked, 0);
+        return {
+          time,
+          booked,
+          remaining,
+          available: remaining > 0,
+        };
+      }),
+    };
+  }
+
   async create(createAppointmentDto: any, userId: string) {
     const service = await this.serviceModel.findById(
       createAppointmentDto.serviceId,
@@ -60,12 +191,27 @@ export class AppointmentsService {
       throw new BadRequestException('This service is currently unavailable');
     }
 
-    const appointmentDate = new Date(
-      `${createAppointmentDto.date}T00:00:00.000Z`,
-    );
+    const appointmentDate = this.parseDateOnly(createAppointmentDto.date);
+    this.ensureBookableDate(service, appointmentDate);
 
-    if (Number.isNaN(appointmentDate.getTime())) {
-      throw new BadRequestException('Invalid appointment date');
+    const validSlots = this.buildServiceSlots(service);
+    if (!validSlots.includes(createAppointmentDto.timeSlot)) {
+      throw new BadRequestException(
+        'The selected time is outside this service schedule',
+      );
+    }
+
+    const duplicateBooking = await this.appointmentModel.exists({
+      userId,
+      serviceId: createAppointmentDto.serviceId,
+      date: appointmentDate,
+      timeSlot: createAppointmentDto.timeSlot,
+      status: { $ne: AppointmentStatus.CANCELLED },
+    });
+    if (duplicateBooking) {
+      throw new ConflictException(
+        'You already have an active appointment for this service and time slot',
+      );
     }
 
     const currentBookings = await this.appointmentModel.countDocuments({
@@ -81,12 +227,20 @@ export class AppointmentsService {
       );
     }
 
+    const dailyServiceCount = await this.appointmentModel.countDocuments({
+      serviceId: createAppointmentDto.serviceId,
+      date: appointmentDate,
+    });
+    const prefix =
+      service.name.replace(/[^a-zA-Z0-9]/g, '').slice(0, 3).toUpperCase() ||
+      'TKT';
+
     const appointment = new this.appointmentModel({
       ...createAppointmentDto,
       date: appointmentDate,
       userId,
       qrToken: crypto.randomUUID(),
-      ticketNumber: `${service.name.substring(0, 3).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`,
+      ticketNumber: `${prefix}-${String(dailyServiceCount + 1).padStart(3, '0')}`,
       status: AppointmentStatus.CONFIRMED,
     });
 
