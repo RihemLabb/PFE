@@ -3,6 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { Appointment, AppointmentSchema } from './schemas/appointment.schema';
 import { AppointmentsService } from './appointments.service';
 import { AppointmentsController } from './appointments.controller';
+import { AvailabilityController } from './availability.controller';
 import { ServicesModule } from '../services/services.module';
 import {
   QueueEntry,
@@ -17,7 +18,7 @@ import {
     ]),
     ServicesModule,
   ],
-  controllers: [AppointmentsController],
+  controllers: [AppointmentsController, AvailabilityController],
   providers: [AppointmentsService],
   exports: [MongooseModule],
 })
