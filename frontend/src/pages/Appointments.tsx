@@ -34,9 +34,13 @@ export default function Appointments() {
       try {
         const data = await getAppointments();
         setAppointments(data);
-      } catch (error) { toast.error('Failed to load appointments'); } finally { setLoading(false); }
+      } catch {
+        toast.error('Failed to load appointments');
+      } finally {
+        setLoading(false);
+      }
     };
-    fetchData();
+    void fetchData();
   }, []);
 
   const getExportData = () => {
