@@ -1,7 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Search, LayoutDashboard, Settings, Calendar, Users, LogOut, Moon, Sun, X } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import {
+  Calendar,
+  LayoutDashboard,
+  LogOut,
+  Moon,
+  Search,
+  Settings,
+  Sun,
+  Users,
+  X,
+} from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useAuthStore } from '../store/authStore';
 
@@ -9,9 +19,10 @@ interface Command {
   id: string;
   label: string;
   description: string;
-  icon: any;
+  icon: React.ComponentType<{ className?: string }>;
   action: () => void;
   category: string;
+  roles?: string[];
 }
 
 export default function CommandPalette() {
@@ -19,7 +30,7 @@ export default function CommandPalette() {
   const [search, setSearch] = useState('');
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
-  const logout = useAuthStore((s) => s.logout);
+  const { user, logout } = useAuthStore();
 
   const commands: Command[] = [
     {
@@ -28,7 +39,8 @@ export default function CommandPalette() {
       description: 'View overview and statistics',
       icon: LayoutDashboard,
       action: () => navigate('/dashboard'),
-      category: 'Navigation'
+      category: 'Navigation',
+      roles: ['ADMIN', 'SUPERVISOR'],
     },
     {
       id: 'services',
@@ -36,7 +48,8 @@ export default function CommandPalette() {
       description: 'Manage all services',
       icon: Settings,
       action: () => navigate('/dashboard/services'),
-      category: 'Navigation'
+      category: 'Navigation',
+      roles: ['ADMIN'],
     },
     {
       id: 'appointments',
@@ -44,15 +57,17 @@ export default function CommandPalette() {
       description: 'View all appointments',
       icon: Calendar,
       action: () => navigate('/dashboard/appointments'),
-      category: 'Navigation'
+      category: 'Navigation',
+      roles: ['ADMIN', 'SUPERVISOR'],
     },
     {
       id: 'queue',
       label: 'Go to Queue',
-      description: 'Manage the queue',
+      description: 'Manage the live queue',
       icon: Users,
       action: () => navigate('/dashboard/queue'),
-      category: 'Navigation'
+      category: 'Navigation',
+      roles: ['ADMIN', 'AGENT'],
     },
     {
       id: 'theme',
@@ -60,62 +75,76 @@ export default function CommandPalette() {
       description: 'Toggle dark/light theme',
       icon: theme === 'light' ? Moon : Sun,
       action: toggleTheme,
-      category: 'Preferences'
+      category: 'Preferences',
     },
     {
       id: 'logout',
       label: 'Sign Out',
       description: 'Log out of your account',
       icon: LogOut,
-      action: () => { logout(); navigate('/login'); },
-      category: 'Account'
-    }
+      action: () => {
+        logout();
+        navigate('/login');
+      },
+      category: 'Account',
+    },
   ];
 
-  const filteredCommands = commands.filter(cmd =>
-    cmd.label.toLowerCase().includes(search.toLowerCase()) ||
-    cmd.description.toLowerCase().includes(search.toLowerCase()) ||
-    cmd.category.toLowerCase().includes(search.toLowerCase())
+  const availableCommands = commands.filter(
+    (command) => !command.roles || (user && command.roles.includes(user.role)),
+  );
+  const normalizedSearch = search.toLowerCase();
+  const filteredCommands = availableCommands.filter(
+    (command) =>
+      command.label.toLowerCase().includes(normalizedSearch) ||
+      command.description.toLowerCase().includes(normalizedSearch) ||
+      command.category.toLowerCase().includes(normalizedSearch),
   );
 
-  // Open with Cmd+K or Ctrl+K
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
+        event.preventDefault();
         setIsOpen(true);
       }
-      if (e.key === 'Escape') {
-        setIsOpen(false);
-      }
+      if (event.key === 'Escape') setIsOpen(false);
     };
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const handleCommand = (cmd: Command) => {
-    cmd.action();
+  const handleCommand = (command: Command) => {
+    command.action();
     setIsOpen(false);
     setSearch('');
   };
 
+  const groupedCommands = filteredCommands.reduce(
+    (groups, command) => {
+      if (!groups[command.category]) groups[command.category] = [];
+      groups[command.category].push(command);
+      return groups;
+    },
+    {} as Record<string, Command[]>,
+  );
+
   return (
     <>
-      {/* Trigger Button */}
       <button
         onClick={() => setIsOpen(true)}
-        className="hidden md:flex items-center gap-2 px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
+        className="hidden md:flex fixed top-5 right-8 z-30 items-center gap-2 px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors shadow-sm"
       >
         <Search className="w-4 h-4" />
         <span>Search...</span>
-        <kbd className="px-1.5 py-0.5 text-xs bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded">⌘K</kbd>
+        <kbd className="px-1.5 py-0.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded">
+          ⌘K
+        </kbd>
       </button>
 
-      {/* Modal */}
       <AnimatePresence>
         {isOpen && (
           <>
-            {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -124,62 +153,60 @@ export default function CommandPalette() {
               className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
             />
 
-            {/* Palette */}
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: -20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -20 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="fixed top-[20%] left-1/2 -translate-x-1/2 w-full max-w-2xl bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50"
+              className="fixed top-[20%] left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-2xl bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50"
             >
-              {/* Search Input */}
               <div className="flex items-center gap-3 p-4 border-b border-gray-200 dark:border-gray-700">
                 <Search className="w-5 h-5 text-gray-400" />
                 <input
                   autoFocus
                   type="text"
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(event) => setSearch(event.target.value)}
                   placeholder="Type a command or search..."
                   className="flex-1 bg-transparent outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400"
                 />
-                <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              {/* Results */}
               <div className="max-h-96 overflow-y-auto p-2">
                 {filteredCommands.length === 0 ? (
                   <div className="p-8 text-center text-gray-500 dark:text-gray-400">
                     No results found
                   </div>
                 ) : (
-                  Object.entries(
-                    filteredCommands.reduce((acc, cmd) => {
-                      if (!acc[cmd.category]) acc[cmd.category] = [];
-                      acc[cmd.category].push(cmd);
-                      return acc;
-                    }, {} as Record<string, Command[]>)
-                  ).map(([category, cmds]) => (
+                  Object.entries(groupedCommands).map(([category, categoryCommands]) => (
                     <div key={category} className="mb-4">
                       <div className="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         {category}
                       </div>
-                      {cmds.map((cmd) => {
-                        const Icon = cmd.icon;
+                      {categoryCommands.map((command) => {
+                        const Icon = command.icon;
                         return (
                           <button
-                            key={cmd.id}
-                            onClick={() => handleCommand(cmd)}
+                            key={command.id}
+                            onClick={() => handleCommand(command)}
                             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-left group"
                           >
                             <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/30 transition-colors">
                               <Icon className="w-4 h-4 text-gray-600 dark:text-gray-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400" />
                             </div>
                             <div className="flex-1">
-                              <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{cmd.label}</div>
-                              <div className="text-xs text-gray-500 dark:text-gray-400">{cmd.description}</div>
+                              <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                {command.label}
+                              </div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400">
+                                {command.description}
+                              </div>
                             </div>
                           </button>
                         );
@@ -187,24 +214,6 @@ export default function CommandPalette() {
                     </div>
                   ))
                 )}
-              </div>
-
-              {/* Footer */}
-              <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
-                  <span className="flex items-center gap-1">
-                    <kbd className="px-1.5 py-0.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded">↑↓</kbd>
-                    Navigate
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <kbd className="px-1.5 py-0.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded">↵</kbd>
-                    Select
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <kbd className="px-1.5 py-0.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded">Esc</kbd>
-                    Close
-                  </span>
-                </div>
               </div>
             </motion.div>
           </>
