@@ -19,6 +19,17 @@ export class QueueController {
     return this.queueService.getPublicDisplayQueue(serviceId);
   }
 
+  @Get('my-status')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get live queue position and ETA for my appointment' })
+  getMyQueueStatus(
+    @Query('appointmentId') appointmentId: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.queueService.getMyQueueStatus(appointmentId, user.userId);
+  }
+
   @Get('today')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.AGENT)
