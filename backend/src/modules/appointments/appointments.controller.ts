@@ -44,6 +44,15 @@ export class AppointmentsController {
     return this.appointmentsService.findMyAppointments(userId);
   }
 
+  @Get('dashboard/stats')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPERVISOR)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get live dashboard statistics (Admin/Supervisor)' })
+  getStats() {
+    return this.appointmentsService.getDashboardStats();
+  }
+
   @Post()
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
@@ -70,21 +79,5 @@ export class AppointmentsController {
     }
 
     return this.appointmentsService.cancel(id, userId, role);
-  }
-
-  @Get('dashboard/stats')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.SUPERVISOR)
-  @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Get dashboard stats (Admin)' })
-  getStats() {
-    return {
-      totalServices: 2,
-      todayAppointments: 5,
-      checkedIn: 2,
-      finished: 1,
-      cancelled: 0,
-      waiting: 2,
-    };
   }
 }
