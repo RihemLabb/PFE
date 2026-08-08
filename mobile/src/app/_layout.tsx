@@ -16,11 +16,12 @@ export default function RootLayout() {
   useEffect(() => {
     if (!isHydrated) return;
 
-    const onLoginScreen = segments[0] === 'login';
+    const onPublicAuthScreen =
+      segments[0] === 'login' || segments[0] === 'register';
 
-    if (!token && !onLoginScreen) {
+    if (!token && !onPublicAuthScreen) {
       router.replace('/login');
-    } else if (token && onLoginScreen) {
+    } else if (token && onPublicAuthScreen) {
       router.replace('/');
     }
   }, [isHydrated, segments, token]);
@@ -49,6 +50,10 @@ export default function RootLayout() {
         <Stack.Screen
           name="login"
           options={{ title: 'Login', headerShown: false }}
+        />
+        <Stack.Screen
+          name="register"
+          options={{ title: 'Register', headerShown: false }}
         />
       </Stack>
     </>
