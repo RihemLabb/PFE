@@ -1,5 +1,5 @@
-import { Controller, Get, Post, Body, Param, Query, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { QueueService } from './queue.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -11,6 +11,12 @@ import { CheckInDto } from './dto/check-in.dto';
 @Controller('queue')
 export class QueueController {
   constructor(private readonly queueService: QueueService) {}
+
+  @Get('display')
+  @ApiOperation({ summary: 'Get sanitized live queue data for a public display' })
+  getPublicDisplayQueue(@Query('serviceId') serviceId: string) {
+    return this.queueService.getPublicDisplayQueue(serviceId);
+  }
 
   @Get('today')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -34,7 +40,7 @@ export class QueueController {
   @Roles(UserRole.AGENT, UserRole.ADMIN)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Call next ticket (Agent)' })
-  callNext(@Body() body: { serviceId: string, counterId: string }) {
+  callNext(@Body() body: { serviceId: string; counterId: string }) {
     return this.queueService.callNext(body.serviceId, body.counterId);
   }
 
