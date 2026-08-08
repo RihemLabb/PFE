@@ -5,18 +5,15 @@ import { AppointmentsService } from './appointments.service';
 import { AppointmentsController } from './appointments.controller';
 import { AvailabilityController } from './availability.controller';
 import { ServicesModule } from '../services/services.module';
-import {
-  QueueEntry,
-  QueueEntrySchema,
-} from '../queue/schemas/queue-entry.schema';
+import { QueueDataModule } from '../queue/queue-data.module';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: Appointment.name, schema: AppointmentSchema },
-      { name: QueueEntry.name, schema: QueueEntrySchema },
     ]),
     ServicesModule,
+    QueueDataModule,
   ],
   controllers: [AppointmentsController, AvailabilityController],
   providers: [AppointmentsService],
