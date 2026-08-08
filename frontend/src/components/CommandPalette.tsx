@@ -5,10 +5,12 @@ import {
   Calendar,
   LayoutDashboard,
   LogOut,
+  MonitorCog,
   Moon,
   Search,
   Settings,
   Sun,
+  UserCog,
   Users,
   X,
 } from 'lucide-react';
@@ -36,7 +38,7 @@ export default function CommandPalette() {
     {
       id: 'dashboard',
       label: 'Go to Dashboard',
-      description: 'View overview and statistics',
+      description: 'View live overview and statistics',
       icon: LayoutDashboard,
       action: () => navigate('/dashboard'),
       category: 'Navigation',
@@ -45,10 +47,28 @@ export default function CommandPalette() {
     {
       id: 'services',
       label: 'Go to Services',
-      description: 'Manage all services',
+      description: 'Manage schedules, capacity, and documents',
       icon: Settings,
       action: () => navigate('/dashboard/services'),
-      category: 'Navigation',
+      category: 'Administration',
+      roles: ['ADMIN'],
+    },
+    {
+      id: 'counters',
+      label: 'Go to Counters',
+      description: 'Manage physical service counters',
+      icon: MonitorCog,
+      action: () => navigate('/dashboard/counters'),
+      category: 'Administration',
+      roles: ['ADMIN'],
+    },
+    {
+      id: 'staff',
+      label: 'Go to Staff & Assignments',
+      description: 'Manage agents, supervisors, and counter assignments',
+      icon: UserCog,
+      action: () => navigate('/dashboard/staff'),
+      category: 'Administration',
       roles: ['ADMIN'],
     },
     {
@@ -158,7 +178,7 @@ export default function CommandPalette() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -20 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="fixed top-[20%] left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-2xl bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50"
+              className="fixed top-[20%] left-1/2 -translate-x-1/2 w-[calc(100%_-_2rem)] max-w-2xl bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50"
             >
               <div className="flex items-center gap-3 p-4 border-b border-gray-200 dark:border-gray-700">
                 <Search className="w-5 h-5 text-gray-400" />
