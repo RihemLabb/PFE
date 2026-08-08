@@ -9,7 +9,12 @@ import { Model, Types } from 'mongoose';
 import * as crypto from 'crypto';
 import { Appointment, AppointmentDocument } from './schemas/appointment.schema';
 import { Service, ServiceDocument } from '../services/schemas/service.schema';
+import {
+  QueueEntry,
+  QueueEntryDocument,
+} from '../queue/schemas/queue-entry.schema';
 import { AppointmentStatus } from '../../common/enums/appointment-status.enum';
+import { QueueStatus } from '../../common/enums/queue-status.enum';
 import { UserRole } from '../../common/enums/user-role.enum';
 
 @Injectable()
@@ -18,7 +23,18 @@ export class AppointmentsService {
     @InjectModel(Appointment.name)
     private appointmentModel: Model<AppointmentDocument>,
     @InjectModel(Service.name) private serviceModel: Model<ServiceDocument>,
+    @InjectModel(QueueEntry.name)
+    private queueEntryModel: Model<QueueEntryDocument>,
   ) {}
+
+  private getUtcDayRange(date = new Date()) {
+    const start = new Date(
+      Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+    );
+    const end = new Date(start);
+    end.setUTCDate(end.getUTCDate() + 1);
+    return { start, end };
+  }
 
   async findAll() {
     return this.appointmentModel
@@ -111,5 +127,104 @@ export class AppointmentsService {
 
     appointment.status = AppointmentStatus.CANCELLED;
     return appointment.save();
+  }
+
+  async getDashboardStats() {
+    const { start, end } = this.getUtcDayRange();
+
+    const [
+      totalServices,
+      todayAppointments,
+      cancelled,
+      queueEntries,
+      finished,
+      absent,
+      waiting,
+    ] = await Promise.all([
+      this.serviceModel.countDocuments({ isActive: true }),
+      this.appointmentModel.countDocuments({ date: { $gte: start, $lt: end } }),
+      this.appointmentModel.countDocuments({
+        date: { $gte: start, $lt: end },
+        status: AppointmentStatus.CANCELLED,
+      }),
+      this.queueEntryModel
+        .find({ date: { $gte: start, $lt: end } })
+        .select('status checkInTime calledTime')
+        .lean(),
+      this.queueEntryModel.countDocuments({
+        date: { $gte: start, $lt: end },
+        status: QueueStatus.FINISHED,
+      }),
+      this.queueEntryModel.countDocuments({
+        date: { $gte: start, $lt: end },
+        status: QueueStatus.ABSENT,
+      }),
+      this.queueEntryModel.countDocuments({
+        date: { $gte: start, $lt: end },
+        status: QueueStatus.WAITING,
+      }),
+    ]);
+
+    const waitingSamples = queueEntries.filter(
+      (entry: any) => entry.checkInTime && entry.calledTime,
+    );
+    const averageWaitMinutes = waitingSamples.length
+      ? Math.round(
+          waitingSamples.reduce((sum: number, entry: any) => {
+            const waitMs =
+              new Date(entry.calledTime).getTime() -
+              new Date(entry.checkInTime).getTime();
+            return sum + Math.max(waitMs, 0);
+          }, 0) /
+            waitingSamples.length /
+            60000,
+        )
+      : 0;
+
+    const weeklyData = await Promise.all(
+      Array.from({ length: 7 }, async (_, index) => {
+        const dayStart = new Date(start);
+        dayStart.setUTCDate(start.getUTCDate() - (6 - index));
+        const dayEnd = new Date(dayStart);
+        dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
+
+        const [appointments, completed] = await Promise.all([
+          this.appointmentModel.countDocuments({
+            date: { $gte: dayStart, $lt: dayEnd },
+          }),
+          this.appointmentModel.countDocuments({
+            date: { $gte: dayStart, $lt: dayEnd },
+            status: AppointmentStatus.FINISHED,
+          }),
+        ]);
+
+        return {
+          day: dayStart.toLocaleDateString('en-US', {
+            weekday: 'short',
+            timeZone: 'UTC',
+          }),
+          appointments,
+          completed,
+        };
+      }),
+    );
+
+    return {
+      totalServices,
+      todayAppointments,
+      checkedIn: queueEntries.length,
+      finished,
+      cancelled,
+      absent,
+      waiting,
+      averageWaitMinutes,
+      weeklyData,
+      statusBreakdown: [
+        { name: 'Finished', value: finished },
+        { name: 'Waiting', value: waiting },
+        { name: 'Cancelled', value: cancelled },
+        { name: 'Absent', value: absent },
+      ],
+    };
   }
 }
