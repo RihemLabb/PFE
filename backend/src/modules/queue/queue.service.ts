@@ -2,9 +2,14 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { QueueEntry, QueueEntryDocument } from './schemas/queue-entry.schema';
-import { Appointment, AppointmentDocument } from '../appointments/schemas/appointment.schema';
+import {
+  Appointment,
+  AppointmentDocument,
+} from '../appointments/schemas/appointment.schema';
+import { Counter, CounterDocument } from '../counters/schemas/counter.schema';
 import { QueueStatus } from '../../common/enums/queue-status.enum';
 import { AppointmentStatus } from '../../common/enums/appointment-status.enum';
+import { CounterStatus } from '../../common/enums/counter-status.enum';
 
 @Injectable()
 export class QueueService {
@@ -13,6 +18,8 @@ export class QueueService {
     private queueEntryModel: Model<QueueEntryDocument>,
     @InjectModel(Appointment.name)
     private appointmentModel: Model<AppointmentDocument>,
+    @InjectModel(Counter.name)
+    private counterModel: Model<CounterDocument>,
   ) {}
 
   private getTodayRange() {
@@ -25,11 +32,14 @@ export class QueueService {
     return { start, end };
   }
 
-  async getTodayQueue(serviceId: string) {
+  private validateServiceId(serviceId: string) {
     if (!Types.ObjectId.isValid(serviceId)) {
       throw new BadRequestException('Invalid Service ID format');
     }
+  }
 
+  async getTodayQueue(serviceId: string) {
+    this.validateServiceId(serviceId);
     const { start, end } = this.getTodayRange();
 
     return this.queueEntryModel
@@ -43,6 +53,37 @@ export class QueueService {
       })
       .populate('counterId')
       .sort({ position: 1 });
+  }
+
+  async getPublicDisplayQueue(serviceId: string) {
+    this.validateServiceId(serviceId);
+    const { start, end } = this.getTodayRange();
+
+    const entries = await this.queueEntryModel
+      .find({
+        serviceId,
+        date: { $gte: start, $lt: end },
+        status: {
+          $in: [
+            QueueStatus.WAITING,
+            QueueStatus.CALLED,
+            QueueStatus.IN_PROGRESS,
+          ],
+        },
+      })
+      .populate({ path: 'appointmentId', select: 'ticketNumber' })
+      .populate({ path: 'counterId', select: 'number name' })
+      .sort({ position: 1 })
+      .lean();
+
+    return entries.map((entry: any) => ({
+      _id: entry._id,
+      position: entry.position,
+      status: entry.status,
+      ticketNumber: entry.appointmentId?.ticketNumber ?? 'N/A',
+      counterNumber: entry.counterId?.number ?? null,
+      counterName: entry.counterId?.name ?? null,
+    }));
   }
 
   async checkIn(qrToken: string) {
@@ -116,6 +157,21 @@ export class QueueService {
     if (!Types.ObjectId.isValid(serviceId) || !Types.ObjectId.isValid(counterId)) {
       throw new BadRequestException(
         'Invalid Service or Counter ID format. Please check your configuration.',
+      );
+    }
+
+    const counter = await this.counterModel.findById(counterId);
+    if (!counter) {
+      throw new NotFoundException('Counter not found');
+    }
+
+    if (counter.status !== CounterStatus.ACTIVE) {
+      throw new BadRequestException('Selected counter is not active');
+    }
+
+    if (counter.serviceId.toString() !== serviceId) {
+      throw new BadRequestException(
+        'Selected counter does not belong to the selected service',
       );
     }
 
