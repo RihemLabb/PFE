@@ -3,6 +3,8 @@ import { Toaster } from 'react-hot-toast';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Services from './pages/Services';
+import Counters from './pages/Counters';
+import Staff from './pages/Staff';
 import Appointments from './pages/Appointments';
 import Queue from './pages/Queue';
 import QueueDisplay from './pages/QueueDisplay';
@@ -61,11 +63,24 @@ function App() {
             <Route
               path="services"
               element={
-                <ProtectedRoute
-                  allowedRoles={['ADMIN']}
-                  fallback="/dashboard"
-                >
+                <ProtectedRoute allowedRoles={['ADMIN']} fallback="/dashboard">
                   <Services />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="counters"
+              element={
+                <ProtectedRoute allowedRoles={['ADMIN']} fallback="/dashboard">
+                  <Counters />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="staff"
+              element={
+                <ProtectedRoute allowedRoles={['ADMIN']} fallback="/dashboard">
+                  <Staff />
                 </ProtectedRoute>
               }
             />
