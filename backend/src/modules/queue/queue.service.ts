@@ -7,9 +7,16 @@ import {
   AppointmentDocument,
 } from '../appointments/schemas/appointment.schema';
 import { Counter, CounterDocument } from '../counters/schemas/counter.schema';
+import { AgentAssignmentsService } from '../agent-assignments/agent-assignments.service';
 import { QueueStatus } from '../../common/enums/queue-status.enum';
 import { AppointmentStatus } from '../../common/enums/appointment-status.enum';
 import { CounterStatus } from '../../common/enums/counter-status.enum';
+import { UserRole } from '../../common/enums/user-role.enum';
+
+interface QueueActor {
+  userId: string;
+  role: UserRole;
+}
 
 @Injectable()
 export class QueueService {
@@ -20,6 +27,7 @@ export class QueueService {
     private appointmentModel: Model<AppointmentDocument>,
     @InjectModel(Counter.name)
     private counterModel: Model<CounterDocument>,
+    private readonly agentAssignmentsService: AgentAssignmentsService,
   ) {}
 
   private getTodayRange() {
@@ -38,8 +46,33 @@ export class QueueService {
     }
   }
 
-  async getTodayQueue(serviceId: string) {
+  private async authorizeAgentService(actor: QueueActor, serviceId: string) {
+    if (actor.role === UserRole.AGENT) {
+      await this.agentAssignmentsService.assertAgentService(
+        actor.userId,
+        serviceId,
+      );
+    }
+  }
+
+  private async authorizeAgentEntry(
+    actor: QueueActor,
+    entry: QueueEntryDocument,
+  ) {
+    if (actor.role !== UserRole.AGENT) return;
+    if (!entry.counterId) {
+      throw new BadRequestException('Ticket has no counter assignment');
+    }
+
+    await this.agentAssignmentsService.assertAgentCounter(
+      actor.userId,
+      entry.counterId.toString(),
+    );
+  }
+
+  async getTodayQueue(serviceId: string, actor: QueueActor) {
     this.validateServiceId(serviceId);
+    await this.authorizeAgentService(actor, serviceId);
     const { start, end } = this.getTodayRange();
 
     return this.queueEntryModel
@@ -153,22 +186,30 @@ export class QueueService {
     return entry.save();
   }
 
-  async callNext(serviceId: string, counterId: string) {
+  async callNext(
+    serviceId: string,
+    counterId: string,
+    actor: QueueActor,
+  ) {
     if (!Types.ObjectId.isValid(serviceId) || !Types.ObjectId.isValid(counterId)) {
       throw new BadRequestException(
         'Invalid Service or Counter ID format. Please check your configuration.',
       );
     }
 
-    const counter = await this.counterModel.findById(counterId);
-    if (!counter) {
-      throw new NotFoundException('Counter not found');
+    await this.authorizeAgentService(actor, serviceId);
+    if (actor.role === UserRole.AGENT) {
+      await this.agentAssignmentsService.assertAgentCounter(
+        actor.userId,
+        counterId,
+      );
     }
 
+    const counter = await this.counterModel.findById(counterId);
+    if (!counter) throw new NotFoundException('Counter not found');
     if (counter.status !== CounterStatus.ACTIVE) {
       throw new BadRequestException('Selected counter is not active');
     }
-
     if (counter.serviceId.toString() !== serviceId) {
       throw new BadRequestException(
         'Selected counter does not belong to the selected service',
@@ -176,43 +217,50 @@ export class QueueService {
     }
 
     const { start, end } = this.getTodayRange();
-    const nextEntry = await this.queueEntryModel
-      .findOne({
+    const nextEntry = await this.queueEntryModel.findOneAndUpdate(
+      {
         serviceId,
         date: { $gte: start, $lt: end },
         status: QueueStatus.WAITING,
-      })
-      .sort({ position: 1 });
+      },
+      {
+        $set: {
+          status: QueueStatus.CALLED,
+          counterId: new Types.ObjectId(counterId),
+          calledTime: new Date(),
+        },
+      },
+      { new: true, sort: { position: 1 } },
+    );
 
     if (!nextEntry) {
       throw new NotFoundException('No one is waiting in the queue');
     }
 
-    nextEntry.status = QueueStatus.CALLED;
-    nextEntry.counterId = new Types.ObjectId(counterId);
-    nextEntry.calledTime = new Date();
-    return nextEntry.save();
+    return nextEntry;
   }
 
-  async startService(queueEntryId: string) {
+  async startService(queueEntryId: string, actor: QueueActor) {
     const entry = await this.queueEntryModel.findById(queueEntryId);
     if (!entry) throw new NotFoundException('Queue entry not found');
     if (entry.status !== QueueStatus.CALLED) {
       throw new BadRequestException('Can only start a CALLED ticket');
     }
 
+    await this.authorizeAgentEntry(actor, entry);
     entry.status = QueueStatus.IN_PROGRESS;
     entry.serviceStartTime = new Date();
     return entry.save();
   }
 
-  async finishService(queueEntryId: string) {
+  async finishService(queueEntryId: string, actor: QueueActor) {
     const entry = await this.queueEntryModel.findById(queueEntryId);
     if (!entry) throw new NotFoundException('Queue entry not found');
     if (entry.status !== QueueStatus.IN_PROGRESS) {
       throw new BadRequestException('Can only finish an IN_PROGRESS ticket');
     }
 
+    await this.authorizeAgentEntry(actor, entry);
     entry.status = QueueStatus.FINISHED;
     entry.finishTime = new Date();
     await entry.save();
@@ -224,13 +272,14 @@ export class QueueService {
     return entry;
   }
 
-  async markAbsent(queueEntryId: string) {
+  async markAbsent(queueEntryId: string, actor: QueueActor) {
     const entry = await this.queueEntryModel.findById(queueEntryId);
     if (!entry) throw new NotFoundException('Queue entry not found');
     if (entry.status !== QueueStatus.CALLED) {
       throw new BadRequestException('Can only mark a CALLED ticket as absent');
     }
 
+    await this.authorizeAgentEntry(actor, entry);
     entry.status = QueueStatus.ABSENT;
     await entry.save();
 
