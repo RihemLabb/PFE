@@ -6,6 +6,7 @@ interface User {
   email: string;
   role: string;
   firstName: string;
+  lastName: string;
 }
 
 interface AuthState {
@@ -30,8 +31,8 @@ export const useAuthStore = create<AuthState>()(
     {
       name: 'auth-storage',
       onRehydrateStorage: () => (state) => {
-        state.setHasHydrated(true);
+        state?.setHasHydrated(true);
       },
-    }
-  )
+    },
+  ),
 );
