@@ -47,6 +47,7 @@ export default function RootLayout() {
           options={{ title: 'Your Ticket', headerShown: false }}
         />
         <Stack.Screen name="history" options={{ title: 'History' }} />
+        <Stack.Screen name="queue-status" options={{ title: 'Live Queue' }} />
         <Stack.Screen
           name="login"
           options={{ title: 'Login', headerShown: false }}
