@@ -79,7 +79,7 @@ export default function Login() {
         )}
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => router.push('/register')}>
+      <TouchableOpacity onPress={() => router.push('./register')}>
         <Text style={styles.registerLink}>
           New to Smart Queue?{' '}
           <Text style={styles.registerLinkStrong}>Create an account</Text>
