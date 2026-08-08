@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
@@ -45,29 +45,32 @@ export default function QueueStatusScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
 
-  const fetchStatus = async (manual = false) => {
-    if (!appointmentId) return;
-    if (manual) setRefreshing(true);
+  const fetchStatus = useCallback(
+    async (manual = false) => {
+      if (!appointmentId) return;
+      if (manual) setRefreshing(true);
 
-    try {
-      const response = await api.get<QueueStatusResponse>('/queue/my-status', {
-        params: { appointmentId },
-      });
-      setData(response.data);
-      setError('');
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Could not load queue status');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+      try {
+        const response = await api.get<QueueStatusResponse>('/queue/my-status', {
+          params: { appointmentId },
+        });
+        setData(response.data);
+        setError('');
+      } catch (err: any) {
+        setError(err.response?.data?.message || 'Could not load queue status');
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [appointmentId],
+  );
 
   useEffect(() => {
     fetchStatus();
     const interval = setInterval(() => fetchStatus(), 5000);
     return () => clearInterval(interval);
-  }, [appointmentId]);
+  }, [fetchStatus]);
 
   if (!appointmentId) {
     return (
