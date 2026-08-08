@@ -69,6 +69,27 @@ export class AgentAssignmentsService {
     }
   }
 
+  async assertAgentService(agentId: string, serviceId: string) {
+    if (!Types.ObjectId.isValid(agentId) || !Types.ObjectId.isValid(serviceId)) {
+      throw new BadRequestException('Invalid agent or service ID');
+    }
+
+    const assignment = await this.assignmentModel
+      .findOne({ agentId, isActive: true })
+      .populate('counterId');
+
+    if (!assignment) {
+      throw new ForbiddenException('No active counter is assigned to this agent');
+    }
+
+    const counter = assignment.counterId as unknown as CounterDocument;
+    if (!counter || counter.serviceId.toString() !== serviceId) {
+      throw new ForbiddenException(
+        'The requested service does not match the current agent assignment',
+      );
+    }
+  }
+
   async assign(dto: AssignAgentDto) {
     const [agent, counter] = await Promise.all([
       this.userModel.findById(dto.agentId),
