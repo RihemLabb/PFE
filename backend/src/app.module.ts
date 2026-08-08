@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { ServicesModule } from './modules/services/services.module';
@@ -17,7 +19,7 @@ import { QueueModule } from './modules/queue/queue.module';
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => ({
+      useFactory: (configService: ConfigService) => ({
         uri: configService.getOrThrow<string>('MONGODB_URI'),
       }),
     }),
@@ -29,5 +31,7 @@ import { QueueModule } from './modules/queue/queue.module';
     AppointmentsModule,
     QueueModule,
   ],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}
