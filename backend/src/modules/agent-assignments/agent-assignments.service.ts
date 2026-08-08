@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -48,6 +49,24 @@ export class AgentAssignmentsService {
     return this.populateAssignment(
       this.assignmentModel.findOne({ agentId, isActive: true }),
     );
+  }
+
+  async assertAgentCounter(agentId: string, counterId: string) {
+    if (!Types.ObjectId.isValid(agentId) || !Types.ObjectId.isValid(counterId)) {
+      throw new BadRequestException('Invalid agent or counter ID');
+    }
+
+    const assignment = await this.assignmentModel.exists({
+      agentId,
+      counterId,
+      isActive: true,
+    });
+
+    if (!assignment) {
+      throw new ForbiddenException(
+        'This counter is not assigned to the current agent',
+      );
+    }
   }
 
   async assign(dto: AssignAgentDto) {
