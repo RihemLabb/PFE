@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import {
   CheckCircle2,
   Clock,
+  Link2,
   Megaphone,
   Play,
   QrCode,
@@ -22,10 +23,18 @@ import {
 } from '../api/appointmentsApi';
 import { getServices, type Service } from '../api/servicesApi';
 import { getCounters, type Counter } from '../api/countersApi';
+import {
+  getMyAgentAssignment,
+  type AgentAssignment,
+} from '../api/agentAssignmentsApi';
+import { useAuthStore } from '../store/authStore';
 
 export default function Queue() {
+  const user = useAuthStore((state) => state.user);
+  const isAgent = user?.role === 'AGENT';
   const [services, setServices] = useState<Service[]>([]);
   const [counters, setCounters] = useState<Counter[]>([]);
+  const [assignment, setAssignment] = useState<AgentAssignment | null>(null);
   const [selectedServiceId, setSelectedServiceId] = useState('');
   const [selectedCounterId, setSelectedCounterId] = useState('');
   const [queue, setQueue] = useState<QueueEntry[]>([]);
@@ -35,24 +44,44 @@ export default function Queue() {
 
   useEffect(() => {
     const loadConfiguration = async () => {
+      setConfigLoading(true);
       try {
-        const [serviceData, counterData] = await Promise.all([
-          getServices(),
-          getCounters(),
-        ]);
-        const activeServices = serviceData.filter((service) => service.isActive);
-        setServices(activeServices);
-        setCounters(counterData);
-        setSelectedServiceId(activeServices[0]?._id ?? '');
-      } catch {
-        toast.error('Failed to load services and counters');
+        if (isAgent) {
+          const currentAssignment = await getMyAgentAssignment();
+          setAssignment(currentAssignment);
+
+          if (!currentAssignment) {
+            setSelectedServiceId('');
+            setSelectedCounterId('');
+            return;
+          }
+
+          const serviceRef = currentAssignment.counterId.serviceId;
+          const serviceId =
+            typeof serviceRef === 'string' ? serviceRef : serviceRef._id;
+          setSelectedServiceId(serviceId);
+          setSelectedCounterId(currentAssignment.counterId._id);
+        } else {
+          const [serviceData, counterData] = await Promise.all([
+            getServices(),
+            getCounters(),
+          ]);
+          const activeServices = serviceData.filter((service) => service.isActive);
+          setServices(activeServices);
+          setCounters(counterData);
+          setSelectedServiceId(activeServices[0]?._id ?? '');
+        }
+      } catch (error: any) {
+        toast.error(
+          error.response?.data?.message || 'Failed to load counter configuration',
+        );
       } finally {
         setConfigLoading(false);
       }
     };
 
     loadConfiguration();
-  }, []);
+  }, [isAgent]);
 
   const serviceCounters = useMemo(
     () =>
@@ -67,10 +96,11 @@ export default function Queue() {
   );
 
   useEffect(() => {
+    if (isAgent) return;
     if (!serviceCounters.some((counter) => counter._id === selectedCounterId)) {
       setSelectedCounterId(serviceCounters[0]?._id ?? '');
     }
-  }, [selectedCounterId, serviceCounters]);
+  }, [isAgent, selectedCounterId, serviceCounters]);
 
   const fetchQueue = useCallback(
     async (showError = false) => {
@@ -82,18 +112,21 @@ export default function Queue() {
       try {
         const data = await getTodayQueue(selectedServiceId);
         setQueue(data);
-      } catch {
-        if (showError) toast.error('Failed to load queue');
+      } catch (error: any) {
+        if (showError) {
+          toast.error(error.response?.data?.message || 'Failed to load queue');
+        }
       }
     },
     [selectedServiceId],
   );
 
   useEffect(() => {
+    if (!selectedServiceId) return;
     fetchQueue(true);
     const interval = window.setInterval(() => fetchQueue(false), 4000);
     return () => window.clearInterval(interval);
-  }, [fetchQueue]);
+  }, [fetchQueue, selectedServiceId]);
 
   const handleCheckIn = async () => {
     const token = qrToken.trim();
@@ -114,7 +147,11 @@ export default function Queue() {
 
   const handleCallNext = async () => {
     if (!selectedServiceId || !selectedCounterId) {
-      toast.error('Select an active service and counter first');
+      toast.error(
+        isAgent
+          ? 'No active counter is assigned to your account'
+          : 'Select an active service and counter first',
+      );
       return;
     }
 
@@ -139,7 +176,11 @@ export default function Queue() {
       };
       await actions[action](id);
       toast.success(
-        action === 'absent' ? 'Ticket marked absent' : `Ticket ${action}ed successfully`,
+        action === 'absent'
+          ? 'Ticket marked absent'
+          : action === 'finish'
+            ? 'Service finished successfully'
+            : 'Service started successfully',
       );
       await fetchQueue();
     } catch (err: any) {
@@ -199,6 +240,11 @@ export default function Queue() {
     }
   };
 
+  const assignedServiceName =
+    assignment && typeof assignment.counterId.serviceId !== 'string'
+      ? assignment.counterId.serviceId.name
+      : 'Assigned service';
+
   return (
     <div className="space-y-8">
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
@@ -212,52 +258,88 @@ export default function Queue() {
 
       <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-200 dark:border-gray-800 shadow-premium">
         <div className="flex items-center gap-2 mb-4">
-          <Settings2 className="w-5 h-5 text-indigo-600" />
+          {isAgent ? (
+            <Link2 className="w-5 h-5 text-indigo-600" />
+          ) : (
+            <Settings2 className="w-5 h-5 text-indigo-600" />
+          )}
           <h3 className="font-bold text-gray-900 dark:text-gray-100">
-            Counter configuration
+            {isAgent ? 'Your counter assignment' : 'Counter configuration'}
           </h3>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <label className="space-y-2">
-            <span className="text-sm font-semibold text-gray-600 dark:text-gray-300">
-              Service
-            </span>
-            <select
-              value={selectedServiceId}
-              onChange={(event) => setSelectedServiceId(event.target.value)}
-              disabled={configLoading}
-              className="w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 text-gray-900 dark:text-gray-100"
-            >
-              {services.length === 0 && <option value="">No active services</option>}
-              {services.map((service) => (
-                <option key={service._id} value={service._id}>
-                  {service.name}
-                </option>
-              ))}
-            </select>
-          </label>
 
-          <label className="space-y-2">
-            <span className="text-sm font-semibold text-gray-600 dark:text-gray-300">
-              Counter
-            </span>
-            <select
-              value={selectedCounterId}
-              onChange={(event) => setSelectedCounterId(event.target.value)}
-              disabled={!selectedServiceId || serviceCounters.length === 0}
-              className="w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 text-gray-900 dark:text-gray-100 disabled:opacity-50"
-            >
-              {serviceCounters.length === 0 && (
-                <option value="">No active counter for this service</option>
-              )}
-              {serviceCounters.map((counter) => (
-                <option key={counter._id} value={counter._id}>
-                  #{counter.number} — {counter.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+        {configLoading ? (
+          <div className="h-12 rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse" />
+        ) : isAgent ? (
+          assignment ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="rounded-xl bg-gray-50 dark:bg-gray-800 p-4">
+                <p className="text-xs uppercase tracking-wider text-gray-400 font-bold">
+                  Service
+                </p>
+                <p className="font-bold text-gray-900 dark:text-gray-100 mt-1">
+                  {assignedServiceName}
+                </p>
+              </div>
+              <div className="rounded-xl bg-gray-50 dark:bg-gray-800 p-4">
+                <p className="text-xs uppercase tracking-wider text-gray-400 font-bold">
+                  Counter
+                </p>
+                <p className="font-bold text-gray-900 dark:text-gray-100 mt-1">
+                  #{assignment.counterId.number} — {assignment.counterId.name}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-800">
+              <p className="font-bold">No active counter assignment</p>
+              <p className="text-sm mt-1">
+                Ask an administrator to assign your agent account to a counter before calling tickets.
+              </p>
+            </div>
+          )
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <label className="space-y-2">
+              <span className="text-sm font-semibold text-gray-600 dark:text-gray-300">
+                Service
+              </span>
+              <select
+                value={selectedServiceId}
+                onChange={(event) => setSelectedServiceId(event.target.value)}
+                className="form-input"
+              >
+                {services.length === 0 && <option value="">No active services</option>}
+                {services.map((service) => (
+                  <option key={service._id} value={service._id}>
+                    {service.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="space-y-2">
+              <span className="text-sm font-semibold text-gray-600 dark:text-gray-300">
+                Counter
+              </span>
+              <select
+                value={selectedCounterId}
+                onChange={(event) => setSelectedCounterId(event.target.value)}
+                disabled={!selectedServiceId || serviceCounters.length === 0}
+                className="form-input disabled:opacity-50"
+              >
+                {serviceCounters.length === 0 && (
+                  <option value="">No active counter for this service</option>
+                )}
+                {serviceCounters.map((counter) => (
+                  <option key={counter._id} value={counter._id}>
+                    #{counter.number} — {counter.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -268,7 +350,7 @@ export default function Queue() {
               key={stat.label}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
+              transition={{ delay: index * 0.08 }}
               className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-200 dark:border-gray-800 shadow-premium"
             >
               <div className="flex items-center justify-between">
@@ -280,9 +362,7 @@ export default function Queue() {
                     {stat.value}
                   </p>
                 </div>
-                <div
-                  className={`w-12 h-12 rounded-xl flex items-center justify-center ${stat.boxClass}`}
-                >
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${stat.boxClass}`}>
                   <Icon className={`w-6 h-6 ${stat.iconClass}`} />
                 </div>
               </div>
@@ -295,7 +375,6 @@ export default function Queue() {
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.4 }}
           className="lg:col-span-2 bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-200 dark:border-gray-800 shadow-premium"
         >
           <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
@@ -311,45 +390,39 @@ export default function Queue() {
                 if (event.key === 'Enter') handleCheckIn();
               }}
               placeholder="Scan or paste QR token..."
-              className="flex-1 border border-gray-300 dark:border-gray-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+              className="form-input"
             />
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+            <button
               onClick={handleCheckIn}
               disabled={isLoading || !qrToken.trim()}
-              className="bg-gray-900 dark:bg-indigo-600 text-white px-8 py-3 rounded-xl font-semibold hover:bg-gray-800 dark:hover:bg-indigo-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 transition-colors shadow-lg"
+              className="bg-gray-900 dark:bg-indigo-600 text-white px-8 py-3 rounded-xl font-semibold disabled:opacity-50"
             >
               {isLoading ? 'Checking...' : 'Check In'}
-            </motion.button>
+            </button>
           </div>
         </motion.div>
 
         <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.5 }}
           className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl p-6 shadow-premium flex flex-col justify-center"
         >
           <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
             <Megaphone className="w-5 h-5" /> Call Next
           </h3>
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+          <button
             onClick={handleCallNext}
             disabled={!selectedCounterId || waitingCount === 0}
-            className="w-full bg-white text-indigo-600 px-6 py-3.5 rounded-xl font-bold hover:bg-gray-50 transition-colors shadow-lg disabled:opacity-60"
+            className="w-full bg-white text-indigo-600 px-6 py-3.5 rounded-xl font-bold disabled:opacity-60"
           >
             Call Next Ticket
-          </motion.button>
+          </button>
         </motion.div>
       </div>
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.6 }}
         className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-premium overflow-hidden"
       >
         <div className="p-6 border-b border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/50">
@@ -366,7 +439,7 @@ export default function Queue() {
                   No one in queue
                 </p>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  Checked-in users for the selected service will appear here
+                  Checked-in users for this service will appear here
                 </p>
               </div>
             ) : (
@@ -393,31 +466,26 @@ export default function Queue() {
                           {entry.appointmentId?.ticketNumber}
                         </p>
                         <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {entry.appointmentId?.userId?.firstName} •{' '}
-                          {entry.appointmentId?.timeSlot}
-                          {entry.counterId?.number
-                            ? ` • Counter ${entry.counterId.number}`
-                            : ''}
+                          {entry.appointmentId?.userId?.firstName} · {entry.appointmentId?.timeSlot}
+                          {entry.counterId?.number ? ` · Counter ${entry.counterId.number}` : ''}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-4 flex-wrap">
-                      <span
-                        className={`px-4 py-1.5 rounded-full text-sm font-semibold flex items-center gap-2 ${config.bg} ${config.text}`}
-                      >
+                      <span className={`px-4 py-1.5 rounded-full text-sm font-semibold flex items-center gap-2 ${config.bg} ${config.text}`}>
                         <Icon className="w-4 h-4" /> {entry.status}
                       </span>
                       {entry.status === 'CALLED' && (
                         <div className="flex gap-2">
                           <button
                             onClick={() => handleAction(entry._id, 'start')}
-                            className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-semibold hover:bg-purple-700 transition-colors"
+                            className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-semibold hover:bg-purple-700"
                           >
                             Start
                           </button>
                           <button
                             onClick={() => handleAction(entry._id, 'absent')}
-                            className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition-colors"
+                            className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700"
                           >
                             Absent
                           </button>
@@ -426,7 +494,7 @@ export default function Queue() {
                       {entry.status === 'IN_PROGRESS' && (
                         <button
                           onClick={() => handleAction(entry._id, 'finish')}
-                          className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 transition-colors"
+                          className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700"
                         >
                           Finish
                         </button>
