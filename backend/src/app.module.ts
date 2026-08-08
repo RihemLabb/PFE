@@ -5,6 +5,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { ServicesModule } from './modules/services/services.module';
 import { CountersModule } from './modules/counters/counters.module';
+import { AgentAssignmentsModule } from './modules/agent-assignments/agent-assignments.module';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { QueueModule } from './modules/queue/queue.module';
 
@@ -24,6 +25,7 @@ import { QueueModule } from './modules/queue/queue.module';
     UsersModule,
     ServicesModule,
     CountersModule,
+    AgentAssignmentsModule,
     AppointmentsModule,
     QueueModule,
   ],
