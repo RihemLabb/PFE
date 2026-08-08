@@ -1,0 +1,126 @@
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Types } from 'mongoose';
+import { AppointmentsService } from './appointments.service';
+import { AppointmentStatus } from '../../common/enums/appointment-status.enum';
+import { UserRole } from '../../common/enums/user-role.enum';
+
+describe('AppointmentsService', () => {
+  let appointmentModel: any;
+  let serviceModel: any;
+  let queueEntryModel: any;
+  let service: AppointmentsService;
+
+  beforeEach(() => {
+    appointmentModel = {
+      findById: jest.fn(),
+      find: jest.fn(),
+      exists: jest.fn(),
+      countDocuments: jest.fn(),
+    };
+    serviceModel = {
+      findById: jest.fn(),
+      countDocuments: jest.fn(),
+    };
+    queueEntryModel = {
+      find: jest.fn(),
+      countDocuments: jest.fn(),
+    };
+
+    service = new AppointmentsService(
+      appointmentModel,
+      serviceModel,
+      queueEntryModel,
+    );
+  });
+
+  it('prevents a user from cancelling another user appointment', async () => {
+    const ownerId = new Types.ObjectId();
+    const requesterId = new Types.ObjectId();
+    appointmentModel.findById.mockResolvedValue({
+      userId: ownerId,
+      status: AppointmentStatus.CONFIRMED,
+      save: jest.fn(),
+    });
+
+    await expect(
+      service.cancel('507f1f77bcf86cd799439011', requesterId.toString(), UserRole.USER),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('allows an appointment owner to cancel a confirmed appointment', async () => {
+    const ownerId = new Types.ObjectId();
+    const appointment = {
+      userId: ownerId,
+      status: AppointmentStatus.CONFIRMED,
+      save: jest.fn().mockImplementation(async function () {
+        return this;
+      }),
+    };
+    appointmentModel.findById.mockResolvedValue(appointment);
+
+    const result = await service.cancel(
+      '507f1f77bcf86cd799439011',
+      ownerId.toString(),
+      UserRole.USER,
+    );
+
+    expect(result.status).toBe(AppointmentStatus.CANCELLED);
+    expect(appointment.save).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects cancellation after check-in', async () => {
+    const ownerId = new Types.ObjectId();
+    appointmentModel.findById.mockResolvedValue({
+      userId: ownerId,
+      status: AppointmentStatus.CHECKED_IN,
+      save: jest.fn(),
+    });
+
+    await expect(
+      service.cancel(
+        '507f1f77bcf86cd799439011',
+        ownerId.toString(),
+        UserRole.USER,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('generates availability from the configured service schedule', async () => {
+    const futureDate = new Date();
+    futureDate.setUTCDate(futureDate.getUTCDate() + 7);
+    while (futureDate.getUTCDay() === 0 || futureDate.getUTCDay() === 6) {
+      futureDate.setUTCDate(futureDate.getUTCDate() + 1);
+    }
+    const date = futureDate.toISOString().slice(0, 10);
+
+    serviceModel.findById.mockResolvedValue({
+      _id: new Types.ObjectId(),
+      name: 'Passport Renewal',
+      isActive: true,
+      avgDuration: 15,
+      slotDuration: 30,
+      maxCapacityPerSlot: 2,
+      openingTime: '09:00',
+      closingTime: '10:00',
+      workingDays: [1, 2, 3, 4, 5],
+      requiredDocs: ['ID Card'],
+    });
+
+    appointmentModel.find.mockReturnValue({
+      select: jest.fn().mockReturnValue({
+        lean: jest.fn().mockResolvedValue([{ timeSlot: '09:00' }]),
+      }),
+    });
+
+    const result = await service.getAvailability(
+      '507f1f77bcf86cd799439011',
+      date,
+    );
+
+    expect(result.isOpen).toBe(true);
+    expect(result.slots).toEqual([
+      { time: '09:00', booked: 1, remaining: 1, available: true },
+      { time: '09:30', booked: 0, remaining: 2, available: true },
+    ]);
+  });
+});
