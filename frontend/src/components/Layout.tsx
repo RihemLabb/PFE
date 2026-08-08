@@ -4,9 +4,11 @@ import {
   Calendar,
   LayoutDashboard,
   LogOut,
+  MonitorCog,
   Moon,
   Settings,
   Sun,
+  UserCog,
   Users,
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
@@ -30,6 +32,18 @@ export default function Layout() {
       path: '/dashboard/services',
       label: 'Services',
       icon: Settings,
+      roles: ['ADMIN'],
+    },
+    {
+      path: '/dashboard/counters',
+      label: 'Counters',
+      icon: MonitorCog,
+      roles: ['ADMIN'],
+    },
+    {
+      path: '/dashboard/staff',
+      label: 'Staff',
+      icon: UserCog,
       roles: ['ADMIN'],
     },
     {
@@ -76,7 +90,7 @@ export default function Layout() {
           </motion.div>
         </div>
 
-        <nav className="p-4 space-y-2">
+        <nav className="p-4 space-y-2 overflow-y-auto max-h-[calc(100vh-265px)]">
           {navItems.map((item, index) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
@@ -86,7 +100,7 @@ export default function Layout() {
                 key={item.path}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.1 * index }}
+                transition={{ delay: 0.07 * index }}
               >
                 <Link
                   to={item.path}
@@ -111,7 +125,7 @@ export default function Layout() {
           })}
         </nav>
 
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 dark:border-gray-800">
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
@@ -129,7 +143,7 @@ export default function Layout() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
+            transition={{ delay: 0.4 }}
             className="flex items-center gap-3 px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-800 mb-3"
           >
             <div className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center text-white font-bold shadow-lg">
@@ -159,7 +173,7 @@ export default function Layout() {
       </motion.aside>
 
       <main className="flex-1 ml-64">
-        <div className="max-w-7xl mx-auto p-8">
+        <div className="max-w-7xl mx-auto p-8 pt-20">
           <motion.div
             key={location.pathname}
             initial={{ opacity: 0, y: 20 }}
