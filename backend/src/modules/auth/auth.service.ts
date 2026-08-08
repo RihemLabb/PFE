@@ -1,4 +1,8 @@
-import { Injectable, ConflictException, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { JwtService } from '@nestjs/jwt';
@@ -16,27 +20,31 @@ export class AuthService {
   ) {}
 
   async register(registerDto: RegisterDto) {
-    const allowedRoles = [UserRole.USER];
-    const role = registerDto.role || UserRole.USER;
-    if (!allowedRoles.includes(role)) {
-      registerDto.role = UserRole.USER;
-    }
-
-    const existingUser = await this.userModel.findOne({ email: registerDto.email });
+    const email = registerDto.email.trim().toLowerCase();
+    const existingUser = await this.userModel.findOne({ email });
     if (existingUser) {
       throw new ConflictException('Email already registered');
     }
 
+    const role =
+      registerDto.role === UserRole.USER ? registerDto.role : UserRole.USER;
     const hashedPassword = await bcrypt.hash(registerDto.password, 10);
 
     const newUser = new this.userModel({
-      ...registerDto,
+      firstName: registerDto.firstName.trim(),
+      lastName: registerDto.lastName.trim(),
+      email,
       password: hashedPassword,
+      role,
+      isActive: true,
     });
 
     const savedUser = await newUser.save();
-
-    const payload = { sub: savedUser._id, email: savedUser.email, role: savedUser.role };
+    const payload = {
+      sub: savedUser._id,
+      email: savedUser.email,
+      role: savedUser.role,
+    };
     const token = this.jwtService.sign(payload);
 
     return {
@@ -52,9 +60,17 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDto) {
-    const user = await this.userModel.findOne({ email: loginDto.email }).select('+password');
+    const email = loginDto.email.trim().toLowerCase();
+    const user = await this.userModel
+      .findOne({ email })
+      .select('+password');
+
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
+    }
+
+    if (!user.isActive) {
+      throw new UnauthorizedException('This account has been disabled');
     }
 
     const isPasswordValid = await bcrypt.compare(loginDto.password, user.password);
