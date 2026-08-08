@@ -61,12 +61,20 @@ export default function History() {
     router.push({
       pathname: '/ticket',
       params: {
+        appointmentId: appointment._id,
         ticketNumber: appointment.ticketNumber,
         qrToken: appointment.qrToken,
         timeSlot: appointment.timeSlot,
         date: appointment.date.split('T')[0],
         serviceName: appointment.serviceId?.name || 'Service',
       },
+    });
+  };
+
+  const openQueueStatus = (appointment: Appointment) => {
+    router.push({
+      pathname: '/queue-status',
+      params: { appointmentId: appointment._id },
     });
   };
 
@@ -138,6 +146,9 @@ export default function History() {
           const statusColor = getStatusColor(item.status);
           const canCancel = item.status === 'CONFIRMED';
           const canViewTicket = item.status !== 'CANCELLED';
+          const canTrackQueue = ['CHECKED_IN', 'FINISHED', 'ABSENT'].includes(
+            item.status,
+          );
 
           return (
             <View style={styles.card}>
@@ -164,6 +175,15 @@ export default function History() {
               </View>
 
               <View style={styles.actions}>
+                {canTrackQueue && (
+                  <TouchableOpacity
+                    style={styles.liveButton}
+                    onPress={() => openQueueStatus(item)}
+                  >
+                    <Text style={styles.liveButtonText}>Live queue</Text>
+                  </TouchableOpacity>
+                )}
+
                 {canViewTicket && (
                   <TouchableOpacity
                     style={styles.primaryButton}
@@ -251,11 +271,20 @@ const styles = StyleSheet.create({
   },
   date: { fontSize: 13, color: '#94A3B8' },
   time: { fontSize: 13, color: '#6366F1', fontWeight: '700' },
-  actions: { flexDirection: 'row', gap: 10, marginTop: 16 },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 16 },
+  liveButton: {
+    backgroundColor: '#0F172A',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  liveButtonText: { color: '#FFFFFF', fontWeight: '800', fontSize: 13 },
   primaryButton: {
-    flex: 1,
+    flexGrow: 1,
     backgroundColor: '#4F46E5',
     borderRadius: 12,
+    paddingHorizontal: 16,
     paddingVertical: 12,
     alignItems: 'center',
   },
