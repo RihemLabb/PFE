@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, Users, CheckCircle, Clock, XCircle, Activity, ArrowUpRight } from 'lucide-react';
+import { Users, CheckCircle, Clock, Activity, ArrowUpRight } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import api from '../api/axios';
 
@@ -38,14 +38,12 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6 pb-10">
-      {/* Header */}
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
         <h2 className="text-3xl font-bold text-gray-900 tracking-tight">Overview</h2>
         <p className="text-gray-500 mt-1">Welcome back, here's what's happening today.</p>
       </motion.div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-4">
-        
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }}
           className="md:col-span-4 lg:col-span-4 row-span-2 bg-white rounded-3xl p-6 border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative overflow-hidden group"
@@ -126,7 +124,6 @@ export default function Dashboard() {
             ))}
           </div>
         </motion.div>
-
       </div>
     </div>
   );
