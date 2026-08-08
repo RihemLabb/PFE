@@ -4,9 +4,15 @@ import { QueueController } from './queue.controller';
 import { QueueDataModule } from './queue-data.module';
 import { AppointmentsModule } from '../appointments/appointments.module';
 import { CountersModule } from '../counters/counters.module';
+import { AgentAssignmentsModule } from '../agent-assignments/agent-assignments.module';
 
 @Module({
-  imports: [QueueDataModule, AppointmentsModule, CountersModule],
+  imports: [
+    QueueDataModule,
+    AppointmentsModule,
+    CountersModule,
+    AgentAssignmentsModule,
+  ],
   controllers: [QueueController],
   providers: [QueueService],
 })
