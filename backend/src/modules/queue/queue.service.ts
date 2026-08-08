@@ -1,80 +1,140 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { QueueEntry, QueueEntryDocument } from './schemas/queue-entry.schema';
 import { Appointment, AppointmentDocument } from '../appointments/schemas/appointment.schema';
 import { QueueStatus } from '../../common/enums/queue-status.enum';
+import { AppointmentStatus } from '../../common/enums/appointment-status.enum';
 
 @Injectable()
 export class QueueService {
   constructor(
-    @InjectModel(QueueEntry.name) private queueEntryModel: Model<QueueEntryDocument>,
-    @InjectModel(Appointment.name) private appointmentModel: Model<AppointmentDocument>,
+    @InjectModel(QueueEntry.name)
+    private queueEntryModel: Model<QueueEntryDocument>,
+    @InjectModel(Appointment.name)
+    private appointmentModel: Model<AppointmentDocument>,
   ) {}
+
+  private getTodayRange() {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
+
+    return { start, end };
+  }
 
   async getTodayQueue(serviceId: string) {
     if (!Types.ObjectId.isValid(serviceId)) {
       throw new BadRequestException('Invalid Service ID format');
     }
 
+    const { start, end } = this.getTodayRange();
+
     return this.queueEntryModel
-      .find({ serviceId: serviceId })
-      .populate('appointmentId')
+      .find({
+        serviceId,
+        date: { $gte: start, $lt: end },
+      })
+      .populate({
+        path: 'appointmentId',
+        populate: { path: 'userId', select: 'firstName lastName' },
+      })
+      .populate('counterId')
       .sort({ position: 1 });
   }
 
   async checkIn(qrToken: string) {
-    const appointment = await this.appointmentModel.findOne({ qrToken }).populate('userId');
+    const appointment = await this.appointmentModel.findOne({ qrToken });
     if (!appointment) {
       throw new NotFoundException('Invalid QR token. Please check your ticket.');
     }
 
-    if (appointment.status === 'CANCELLED') {
-      throw new BadRequestException('Check-in failed: This appointment has been cancelled.');
+    if (appointment.status === AppointmentStatus.CANCELLED) {
+      throw new BadRequestException(
+        'Check-in failed: This appointment has been cancelled.',
+      );
+    }
+
+    if (
+      [AppointmentStatus.FINISHED, AppointmentStatus.ABSENT].includes(
+        appointment.status,
+      )
+    ) {
+      throw new BadRequestException(
+        `Check-in is not allowed for an appointment with status ${appointment.status}`,
+      );
     }
 
     const todayStr = new Date().toISOString().split('T')[0];
     const apptStr = new Date(appointment.date).toISOString().split('T')[0];
 
     if (todayStr !== apptStr) {
-      throw new BadRequestException(`QR code is only valid on the day of the appointment. Today is ${todayStr}, appointment is ${apptStr}.`);
+      throw new BadRequestException(
+        `QR code is only valid on the day of the appointment. Today is ${todayStr}, appointment is ${apptStr}.`,
+      );
     }
 
-    let entry = await this.queueEntryModel.findOne({ appointmentId: appointment._id });
-    
-    if (!entry) {
-      const count = await this.queueEntryModel.countDocuments({ 
-        serviceId: appointment.serviceId
-      });
-      
-      entry = new this.queueEntryModel({
-        appointmentId: appointment._id,
-        serviceId: appointment.serviceId,
-        date: new Date(),
-        position: count + 1,
-        status: QueueStatus.WAITING,
-      });
-    } else {
-      entry.status = QueueStatus.WAITING;
+    const existingEntry = await this.queueEntryModel.findOne({
+      appointmentId: appointment._id,
+    });
+
+    if (existingEntry) {
+      if (existingEntry.status === QueueStatus.WAITING) {
+        return existingEntry;
+      }
+
+      throw new BadRequestException(
+        `This ticket has already been checked in and is currently ${existingEntry.status}`,
+      );
     }
+
+    const { start, end } = this.getTodayRange();
+    const count = await this.queueEntryModel.countDocuments({
+      serviceId: appointment.serviceId,
+      date: { $gte: start, $lt: end },
+    });
+
+    const now = new Date();
+    const entry = new this.queueEntryModel({
+      appointmentId: appointment._id,
+      serviceId: appointment.serviceId,
+      date: now,
+      checkInTime: now,
+      position: count + 1,
+      status: QueueStatus.WAITING,
+    });
+
+    appointment.status = AppointmentStatus.CHECKED_IN;
+    await appointment.save();
 
     return entry.save();
   }
 
   async callNext(serviceId: string, counterId: string) {
     if (!Types.ObjectId.isValid(serviceId) || !Types.ObjectId.isValid(counterId)) {
-      throw new BadRequestException('Invalid Service or Counter ID format. Please check your configuration.');
+      throw new BadRequestException(
+        'Invalid Service or Counter ID format. Please check your configuration.',
+      );
     }
 
-    const nextEntry = await this.queueEntryModel.findOne({
-      serviceId: serviceId,
-      status: QueueStatus.WAITING,
-    }).sort({ position: 1 });
+    const { start, end } = this.getTodayRange();
+    const nextEntry = await this.queueEntryModel
+      .findOne({
+        serviceId,
+        date: { $gte: start, $lt: end },
+        status: QueueStatus.WAITING,
+      })
+      .sort({ position: 1 });
 
-    if (!nextEntry) throw new NotFoundException('No one is waiting in the queue');
+    if (!nextEntry) {
+      throw new NotFoundException('No one is waiting in the queue');
+    }
 
     nextEntry.status = QueueStatus.CALLED;
-    nextEntry.counterId = new Types.ObjectId(counterId); 
+    nextEntry.counterId = new Types.ObjectId(counterId);
+    nextEntry.calledTime = new Date();
     return nextEntry.save();
   }
 
@@ -84,7 +144,9 @@ export class QueueService {
     if (entry.status !== QueueStatus.CALLED) {
       throw new BadRequestException('Can only start a CALLED ticket');
     }
+
     entry.status = QueueStatus.IN_PROGRESS;
+    entry.serviceStartTime = new Date();
     return entry.save();
   }
 
@@ -94,8 +156,16 @@ export class QueueService {
     if (entry.status !== QueueStatus.IN_PROGRESS) {
       throw new BadRequestException('Can only finish an IN_PROGRESS ticket');
     }
+
     entry.status = QueueStatus.FINISHED;
-    return entry.save();
+    entry.finishTime = new Date();
+    await entry.save();
+
+    await this.appointmentModel.findByIdAndUpdate(entry.appointmentId, {
+      status: AppointmentStatus.FINISHED,
+    });
+
+    return entry;
   }
 
   async markAbsent(queueEntryId: string) {
@@ -104,7 +174,14 @@ export class QueueService {
     if (entry.status !== QueueStatus.CALLED) {
       throw new BadRequestException('Can only mark a CALLED ticket as absent');
     }
+
     entry.status = QueueStatus.ABSENT;
-    return entry.save();
+    await entry.save();
+
+    await this.appointmentModel.findByIdAndUpdate(entry.appointmentId, {
+      status: AppointmentStatus.ABSENT,
+    });
+
+    return entry;
   }
 }
