@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Settings, Clock, Users, CheckCircle2 } from 'lucide-react';
+import { Settings, Clock, Users } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getServices } from '../api/servicesApi';
 
