@@ -1,5 +1,16 @@
-import { IsString, IsNotEmpty, IsNumber, IsArray, IsOptional, IsBoolean, Min } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import {
+  IsArray,
+  IsBoolean,
+  IsInt,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Matches,
+  Max,
+  Min,
+} from 'class-validator';
 
 export class CreateServiceDto {
   @ApiProperty({ example: 'Passport Renewal' })
@@ -21,6 +32,7 @@ export class CreateServiceDto {
   @IsArray()
   @IsOptional()
   requiredDocs?: string[];
+
   @ApiProperty({ example: 15, description: 'Slot duration in minutes' })
   @IsNumber()
   @Min(5)
@@ -30,6 +42,28 @@ export class CreateServiceDto {
   @IsNumber()
   @Min(1)
   maxCapacityPerSlot: number;
+
+  @ApiProperty({ example: '09:00', required: false, default: '09:00' })
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/)
+  @IsOptional()
+  openingTime?: string;
+
+  @ApiProperty({ example: '17:00', required: false, default: '17:00' })
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/)
+  @IsOptional()
+  closingTime?: string;
+
+  @ApiProperty({
+    example: [1, 2, 3, 4, 5],
+    description: 'Operating weekdays where 0=Sunday and 6=Saturday',
+    required: false,
+  })
+  @IsArray()
+  @IsInt({ each: true })
+  @Min(0, { each: true })
+  @Max(6, { each: true })
+  @IsOptional()
+  workingDays?: number[];
 }
 
 export class UpdateServiceDto {
@@ -58,13 +92,34 @@ export class UpdateServiceDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
-    @ApiProperty({ example: 15, description: 'Slot duration in minutes' })
+
+  @ApiProperty({ example: 15, required: false })
   @IsNumber()
   @Min(5)
-  slotDuration: number;
+  @IsOptional()
+  slotDuration?: number;
 
-  @ApiProperty({ example: 3, description: 'Max capacity per slot' })
+  @ApiProperty({ example: 3, required: false })
   @IsNumber()
   @Min(1)
-  maxCapacityPerSlot: number;
+  @IsOptional()
+  maxCapacityPerSlot?: number;
+
+  @ApiProperty({ example: '09:00', required: false })
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/)
+  @IsOptional()
+  openingTime?: string;
+
+  @ApiProperty({ example: '17:00', required: false })
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/)
+  @IsOptional()
+  closingTime?: string;
+
+  @ApiProperty({ example: [1, 2, 3, 4, 5], required: false })
+  @IsArray()
+  @IsInt({ each: true })
+  @Min(0, { each: true })
+  @Max(6, { each: true })
+  @IsOptional()
+  workingDays?: number[];
 }
