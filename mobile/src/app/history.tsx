@@ -73,7 +73,7 @@ export default function History() {
 
   const openQueueStatus = (appointment: Appointment) => {
     router.push({
-      pathname: '/queue-status',
+      pathname: './queue-status',
       params: { appointmentId: appointment._id },
     });
   };
