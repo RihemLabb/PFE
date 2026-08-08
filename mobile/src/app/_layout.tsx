@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { router, Stack, useSegments } from 'expo-router';
+import { router, Stack, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useAuthStore } from '../store/authStore';
 
@@ -7,7 +7,7 @@ export default function RootLayout() {
   const loadAuth = useAuthStore((state) => state.loadAuth);
   const token = useAuthStore((state) => state.token);
   const isHydrated = useAuthStore((state) => state.isHydrated);
-  const segments = useSegments();
+  const pathname = usePathname();
 
   useEffect(() => {
     loadAuth();
@@ -16,15 +16,14 @@ export default function RootLayout() {
   useEffect(() => {
     if (!isHydrated) return;
 
-    const onPublicAuthScreen =
-      segments[0] === 'login' || segments[0] === 'register';
+    const onPublicAuthScreen = pathname === '/login' || pathname === '/register';
 
     if (!token && !onPublicAuthScreen) {
       router.replace('/login');
     } else if (token && onPublicAuthScreen) {
       router.replace('/');
     }
-  }, [isHydrated, segments, token]);
+  }, [isHydrated, pathname, token]);
 
   return (
     <>
