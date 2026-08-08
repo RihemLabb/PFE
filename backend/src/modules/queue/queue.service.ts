@@ -7,6 +7,7 @@ import {
   AppointmentDocument,
 } from '../appointments/schemas/appointment.schema';
 import { Counter, CounterDocument } from '../counters/schemas/counter.schema';
+import { Service, ServiceDocument } from '../services/schemas/service.schema';
 import { AgentAssignmentsService } from '../agent-assignments/agent-assignments.service';
 import { QueueStatus } from '../../common/enums/queue-status.enum';
 import { AppointmentStatus } from '../../common/enums/appointment-status.enum';
@@ -27,11 +28,13 @@ export class QueueService {
     private appointmentModel: Model<AppointmentDocument>,
     @InjectModel(Counter.name)
     private counterModel: Model<CounterDocument>,
+    @InjectModel(Service.name)
+    private serviceModel: Model<ServiceDocument>,
     private readonly agentAssignmentsService: AgentAssignmentsService,
   ) {}
 
-  private getTodayRange() {
-    const start = new Date();
+  private getDayRange(date = new Date()) {
+    const start = new Date(date);
     start.setHours(0, 0, 0, 0);
 
     const end = new Date(start);
@@ -73,7 +76,7 @@ export class QueueService {
   async getTodayQueue(serviceId: string, actor: QueueActor) {
     this.validateServiceId(serviceId);
     await this.authorizeAgentService(actor, serviceId);
-    const { start, end } = this.getTodayRange();
+    const { start, end } = this.getDayRange();
 
     return this.queueEntryModel
       .find({
@@ -90,7 +93,7 @@ export class QueueService {
 
   async getPublicDisplayQueue(serviceId: string) {
     this.validateServiceId(serviceId);
-    const { start, end } = this.getTodayRange();
+    const { start, end } = this.getDayRange();
 
     const entries = await this.queueEntryModel
       .find({
@@ -117,6 +120,123 @@ export class QueueService {
       counterNumber: entry.counterId?.number ?? null,
       counterName: entry.counterId?.name ?? null,
     }));
+  }
+
+  async getMyQueueStatus(appointmentId: string, userId: string) {
+    if (
+      !Types.ObjectId.isValid(appointmentId) ||
+      !Types.ObjectId.isValid(userId)
+    ) {
+      throw new BadRequestException('Invalid appointment or user ID');
+    }
+
+    const appointment = await this.appointmentModel.findOne({
+      _id: appointmentId,
+      userId,
+    });
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found');
+    }
+
+    const service = await this.serviceModel.findById(appointment.serviceId);
+    if (!service) throw new NotFoundException('Service not found');
+
+    const entry = await this.queueEntryModel
+      .findOne({ appointmentId: appointment._id })
+      .populate('counterId', 'number name');
+
+    if (!entry) {
+      return {
+        appointmentId: appointment._id,
+        ticketNumber: appointment.ticketNumber,
+        appointmentStatus: appointment.status,
+        serviceName: service.name,
+        queueStatus: null,
+        position: null,
+        peopleAhead: null,
+        estimatedWaitMinutes: null,
+        averageServiceMinutes: service.avgDuration,
+        counter: null,
+      };
+    }
+
+    const { start, end } = this.getDayRange(entry.date);
+    let peopleAhead = 0;
+
+    if (entry.status === QueueStatus.WAITING) {
+      peopleAhead = await this.queueEntryModel.countDocuments({
+        serviceId: entry.serviceId,
+        date: { $gte: start, $lt: end },
+        position: { $lt: entry.position },
+        status: {
+          $in: [
+            QueueStatus.WAITING,
+            QueueStatus.CALLED,
+            QueueStatus.IN_PROGRESS,
+          ],
+        },
+      });
+    }
+
+    const recentFinished = await this.queueEntryModel
+      .find({
+        serviceId: entry.serviceId,
+        status: QueueStatus.FINISHED,
+        serviceStartTime: { $ne: null },
+        finishTime: { $ne: null },
+      })
+      .sort({ finishTime: -1 })
+      .limit(30)
+      .select('serviceStartTime finishTime')
+      .lean();
+
+    const processingSamples = recentFinished
+      .map((sample: any) => {
+        const startTime = new Date(sample.serviceStartTime).getTime();
+        const finishTime = new Date(sample.finishTime).getTime();
+        return (finishTime - startTime) / 60000;
+      })
+      .filter((minutes) => Number.isFinite(minutes) && minutes > 0 && minutes < 240);
+
+    const averageServiceMinutes = processingSamples.length
+      ? Math.max(
+          1,
+          Math.round(
+            processingSamples.reduce((sum, value) => sum + value, 0) /
+              processingSamples.length,
+          ),
+        )
+      : service.avgDuration;
+
+    const estimatedWaitMinutes =
+      entry.status === QueueStatus.WAITING
+        ? Math.max(0, Math.ceil(peopleAhead * averageServiceMinutes))
+        : 0;
+
+    const populatedCounter = entry.counterId as any;
+
+    return {
+      appointmentId: appointment._id,
+      ticketNumber: appointment.ticketNumber,
+      appointmentStatus: appointment.status,
+      serviceName: service.name,
+      queueStatus: entry.status,
+      position: entry.position,
+      peopleAhead,
+      estimatedWaitMinutes,
+      averageServiceMinutes,
+      counter: populatedCounter
+        ? {
+            id: populatedCounter._id,
+            number: populatedCounter.number,
+            name: populatedCounter.name,
+          }
+        : null,
+      checkInTime: entry.checkInTime ?? null,
+      calledTime: entry.calledTime ?? null,
+      serviceStartTime: entry.serviceStartTime ?? null,
+      finishTime: entry.finishTime ?? null,
+    };
   }
 
   async checkIn(qrToken: string) {
@@ -164,7 +284,7 @@ export class QueueService {
       );
     }
 
-    const { start, end } = this.getTodayRange();
+    const { start, end } = this.getDayRange();
     const count = await this.queueEntryModel.countDocuments({
       serviceId: appointment.serviceId,
       date: { $gte: start, $lt: end },
@@ -216,7 +336,7 @@ export class QueueService {
       );
     }
 
-    const { start, end } = this.getTodayRange();
+    const { start, end } = this.getDayRange();
     const nextEntry = await this.queueEntryModel.findOneAndUpdate(
       {
         serviceId,
