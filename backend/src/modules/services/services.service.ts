@@ -8,11 +8,21 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Service, ServiceDocument } from './schemas/service.schema';
 import { CreateServiceDto, UpdateServiceDto } from './dto/service.dto';
+import { Counter, CounterDocument } from '../counters/schemas/counter.schema';
+import {
+  Appointment,
+  AppointmentDocument,
+} from '../appointments/schemas/appointment.schema';
+import { Holiday, HolidayDocument } from '../holidays/schemas/holiday.schema';
 
 @Injectable()
 export class ServicesService {
   constructor(
     @InjectModel(Service.name) private serviceModel: Model<ServiceDocument>,
+    @InjectModel(Counter.name) private counterModel: Model<CounterDocument>,
+    @InjectModel(Appointment.name)
+    private appointmentModel: Model<AppointmentDocument>,
+    @InjectModel(Holiday.name) private holidayModel: Model<HolidayDocument>,
   ) {}
 
   private validateSchedule(openingTime: string, closingTime: string) {
@@ -64,8 +74,10 @@ export class ServicesService {
       updateServiceDto.name = name;
     }
 
-    const openingTime = updateServiceDto.openingTime ?? service.openingTime ?? '09:00';
-    const closingTime = updateServiceDto.closingTime ?? service.closingTime ?? '17:00';
+    const openingTime =
+      updateServiceDto.openingTime ?? service.openingTime ?? '09:00';
+    const closingTime =
+      updateServiceDto.closingTime ?? service.closingTime ?? '17:00';
     this.validateSchedule(openingTime, closingTime);
 
     Object.assign(service, updateServiceDto);
@@ -73,8 +85,22 @@ export class ServicesService {
   }
 
   async remove(id: string) {
-    const deleted = await this.serviceModel.findByIdAndDelete(id);
-    if (!deleted) throw new NotFoundException('Service not found');
+    const service = await this.serviceModel.findById(id);
+    if (!service) throw new NotFoundException('Service not found');
+
+    const [counterCount, appointmentCount, exceptionCount] = await Promise.all([
+      this.counterModel.countDocuments({ serviceId: id }),
+      this.appointmentModel.countDocuments({ serviceId: id }),
+      this.holidayModel.countDocuments({ serviceId: id }),
+    ]);
+
+    if (counterCount || appointmentCount || exceptionCount) {
+      throw new ConflictException(
+        `Service is still referenced by ${counterCount} counter(s), ${appointmentCount} appointment(s), and ${exceptionCount} schedule exception(s). Disable it instead of deleting it.`,
+      );
+    }
+
+    await service.deleteOne();
     return { message: 'Service deleted successfully' };
   }
 }
