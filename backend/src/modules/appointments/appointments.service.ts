@@ -14,6 +14,7 @@ import {
   QueueEntry,
   QueueEntryDocument,
 } from '../queue/schemas/queue-entry.schema';
+import { Holiday, HolidayDocument } from '../holidays/schemas/holiday.schema';
 import { AppointmentStatus } from '../../common/enums/appointment-status.enum';
 import { QueueStatus } from '../../common/enums/queue-status.enum';
 import { UserRole } from '../../common/enums/user-role.enum';
@@ -26,6 +27,8 @@ export class AppointmentsService {
     @InjectModel(Service.name) private serviceModel: Model<ServiceDocument>,
     @InjectModel(QueueEntry.name)
     private queueEntryModel: Model<QueueEntryDocument>,
+    @InjectModel(Holiday.name)
+    private holidayModel: Model<HolidayDocument>,
   ) {}
 
   private getUtcDayRange(date = new Date()) {
@@ -59,9 +62,11 @@ export class AppointmentsService {
     return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
   }
 
-  private buildServiceSlots(service: ServiceDocument) {
-    const openingTime = service.openingTime || '09:00';
-    const closingTime = service.closingTime || '17:00';
+  private buildServiceSlots(
+    service: ServiceDocument,
+    openingTime = service.openingTime || '09:00',
+    closingTime = service.closingTime || '17:00',
+  ) {
     const slotDuration = service.slotDuration;
     const openingMinutes = this.timeToMinutes(openingTime);
     const closingMinutes = this.timeToMinutes(closingTime);
@@ -83,18 +88,62 @@ export class AppointmentsService {
     return slots;
   }
 
-  private ensureBookableDate(service: ServiceDocument, appointmentDate: Date) {
+  private ensureNotPast(appointmentDate: Date) {
     const today = this.getUtcDayRange().start;
     if (appointmentDate < today) {
       throw new BadRequestException('Cannot book an appointment in the past');
+    }
+  }
+
+  private async resolveScheduleForDate(
+    service: ServiceDocument,
+    appointmentDate: Date,
+  ) {
+    const exceptions = await this.holidayModel
+      .find({
+        date: appointmentDate,
+        $or: [{ serviceId: null }, { serviceId: service._id }],
+      })
+      .lean();
+
+    const serviceId = service._id.toString();
+    const specificException = exceptions.find(
+      (exception: any) => exception.serviceId?.toString() === serviceId,
+    );
+    const globalException = exceptions.find(
+      (exception: any) => !exception.serviceId,
+    );
+    const exception = specificException ?? globalException;
+
+    if (exception) {
+      if (exception.isClosed) {
+        return {
+          isOpen: false,
+          openingTime: service.openingTime || '09:00',
+          closingTime: service.closingTime || '17:00',
+          closureReason: exception.name,
+        };
+      }
+
+      return {
+        isOpen: true,
+        openingTime: exception.openingTime || service.openingTime || '09:00',
+        closingTime: exception.closingTime || service.closingTime || '17:00',
+        closureReason: null,
+      };
     }
 
     const workingDays = service.workingDays?.length
       ? service.workingDays
       : [1, 2, 3, 4, 5];
-    if (!workingDays.includes(appointmentDate.getUTCDay())) {
-      throw new BadRequestException('This service is closed on the selected date');
-    }
+    const isOpen = workingDays.includes(appointmentDate.getUTCDay());
+
+    return {
+      isOpen,
+      openingTime: service.openingTime || '09:00',
+      closingTime: service.closingTime || '17:00',
+      closureReason: isOpen ? null : 'Service closed on this weekday',
+    };
   }
 
   async findAll() {
@@ -132,15 +181,19 @@ export class AppointmentsService {
         closingTime: service.closingTime || '17:00',
         requiredDocs: service.requiredDocs ?? [],
         isOpen: false,
+        closureReason: 'Date is in the past',
         slots: [],
       };
     }
 
-    const workingDays = service.workingDays?.length
-      ? service.workingDays
-      : [1, 2, 3, 4, 5];
-    const isOpen = workingDays.includes(appointmentDate.getUTCDay());
-    const serviceSlots = isOpen ? this.buildServiceSlots(service) : [];
+    const schedule = await this.resolveScheduleForDate(service, appointmentDate);
+    const serviceSlots = schedule.isOpen
+      ? this.buildServiceSlots(
+          service,
+          schedule.openingTime,
+          schedule.closingTime,
+        )
+      : [];
 
     const bookings = await this.appointmentModel
       .find({
@@ -165,10 +218,11 @@ export class AppointmentsService {
       date,
       slotDuration: service.slotDuration,
       maxCapacityPerSlot: service.maxCapacityPerSlot,
-      openingTime: service.openingTime || '09:00',
-      closingTime: service.closingTime || '17:00',
+      openingTime: schedule.openingTime,
+      closingTime: schedule.closingTime,
       requiredDocs: service.requiredDocs ?? [],
-      isOpen,
+      isOpen: schedule.isOpen,
+      closureReason: schedule.closureReason,
       slots: serviceSlots.map((time) => {
         const booked = bookingCounts[time] ?? 0;
         const remaining = Math.max(service.maxCapacityPerSlot - booked, 0);
@@ -192,9 +246,20 @@ export class AppointmentsService {
     }
 
     const appointmentDate = this.parseDateOnly(createAppointmentDto.date);
-    this.ensureBookableDate(service, appointmentDate);
+    this.ensureNotPast(appointmentDate);
 
-    const validSlots = this.buildServiceSlots(service);
+    const schedule = await this.resolveScheduleForDate(service, appointmentDate);
+    if (!schedule.isOpen) {
+      throw new BadRequestException(
+        schedule.closureReason || 'This service is closed on the selected date',
+      );
+    }
+
+    const validSlots = this.buildServiceSlots(
+      service,
+      schedule.openingTime,
+      schedule.closingTime,
+    );
     if (!validSlots.includes(createAppointmentDto.timeSlot)) {
       throw new BadRequestException(
         'The selected time is outside this service schedule',

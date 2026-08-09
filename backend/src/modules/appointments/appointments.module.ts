@@ -6,6 +6,7 @@ import { AppointmentsController } from './appointments.controller';
 import { AvailabilityController } from './availability.controller';
 import { ServicesModule } from '../services/services.module';
 import { QueueDataModule } from '../queue/queue-data.module';
+import { HolidaysModule } from '../holidays/holidays.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { QueueDataModule } from '../queue/queue-data.module';
     ]),
     ServicesModule,
     QueueDataModule,
+    HolidaysModule,
   ],
   controllers: [AppointmentsController, AvailabilityController],
   providers: [AppointmentsService],

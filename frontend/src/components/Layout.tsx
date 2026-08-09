@@ -2,6 +2,7 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Calendar,
+  CalendarDays,
   LayoutDashboard,
   LogOut,
   MonitorCog,
@@ -44,6 +45,12 @@ export default function Layout() {
       path: '/dashboard/staff',
       label: 'Staff',
       icon: UserCog,
+      roles: ['ADMIN'],
+    },
+    {
+      path: '/dashboard/holidays',
+      label: 'Schedule',
+      icon: CalendarDays,
       roles: ['ADMIN'],
     },
     {

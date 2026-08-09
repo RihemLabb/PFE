@@ -8,6 +8,7 @@ describe('AppointmentsService', () => {
   let appointmentModel: any;
   let serviceModel: any;
   let queueEntryModel: any;
+  let holidayModel: any;
   let service: AppointmentsService;
 
   beforeEach(() => {
@@ -25,11 +26,17 @@ describe('AppointmentsService', () => {
       find: jest.fn(),
       countDocuments: jest.fn(),
     };
+    holidayModel = {
+      find: jest.fn().mockReturnValue({
+        lean: jest.fn().mockResolvedValue([]),
+      }),
+    };
 
     service = new AppointmentsService(
       appointmentModel,
       serviceModel,
       queueEntryModel,
+      holidayModel,
     );
   });
 
@@ -43,7 +50,11 @@ describe('AppointmentsService', () => {
     });
 
     await expect(
-      service.cancel('507f1f77bcf86cd799439011', requesterId.toString(), UserRole.USER),
+      service.cancel(
+        '507f1f77bcf86cd799439011',
+        requesterId.toString(),
+        UserRole.USER,
+      ),
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
@@ -122,5 +133,45 @@ describe('AppointmentsService', () => {
       { time: '09:00', booked: 1, remaining: 1, available: true },
       { time: '09:30', booked: 0, remaining: 2, available: true },
     ]);
+  });
+
+  it('closes availability on a configured global holiday', async () => {
+    const futureDate = new Date();
+    futureDate.setUTCDate(futureDate.getUTCDate() + 7);
+    const date = futureDate.toISOString().slice(0, 10);
+    const serviceId = new Types.ObjectId();
+
+    serviceModel.findById.mockResolvedValue({
+      _id: serviceId,
+      name: 'Civil Registry',
+      isActive: true,
+      slotDuration: 30,
+      maxCapacityPerSlot: 2,
+      openingTime: '09:00',
+      closingTime: '10:00',
+      workingDays: [0, 1, 2, 3, 4, 5, 6],
+      requiredDocs: [],
+    });
+    holidayModel.find.mockReturnValue({
+      lean: jest.fn().mockResolvedValue([
+        {
+          name: 'National holiday',
+          date: new Date(`${date}T00:00:00.000Z`),
+          serviceId: null,
+          isClosed: true,
+        },
+      ]),
+    });
+    appointmentModel.find.mockReturnValue({
+      select: jest.fn().mockReturnValue({
+        lean: jest.fn().mockResolvedValue([]),
+      }),
+    });
+
+    const result = await service.getAvailability(serviceId.toString(), date);
+
+    expect(result.isOpen).toBe(false);
+    expect(result.closureReason).toBe('National holiday');
+    expect(result.slots).toEqual([]);
   });
 });

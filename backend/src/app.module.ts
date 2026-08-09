@@ -11,6 +11,7 @@ import { AgentAssignmentsModule } from './modules/agent-assignments/agent-assign
 import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { QueueModule } from './modules/queue/queue.module';
 import { FeedbackModule } from './modules/feedback/feedback.module';
+import { HolidaysModule } from './modules/holidays/holidays.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { FeedbackModule } from './modules/feedback/feedback.module';
     AppointmentsModule,
     QueueModule,
     FeedbackModule,
+    HolidaysModule,
   ],
   controllers: [AppController],
   providers: [AppService],
