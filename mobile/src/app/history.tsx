@@ -25,18 +25,34 @@ interface Appointment {
   };
 }
 
+interface Feedback {
+  appointmentId: string;
+  rating: number;
+}
+
 export default function History() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [ratings, setRatings] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   const fetchAppointments = async () => {
     try {
-      const { data } = await api.get<Appointment[]>(
-        '/appointments/my-appointments',
+      const [appointmentsResponse, feedbackResponse] = await Promise.all([
+        api.get<Appointment[]>('/appointments/my-appointments'),
+        api.get<Feedback[]>('/feedback/my'),
+      ]);
+
+      setAppointments(appointmentsResponse.data);
+      setRatings(
+        Object.fromEntries(
+          feedbackResponse.data.map((feedback) => [
+            feedback.appointmentId,
+            feedback.rating,
+          ]),
+        ),
       );
-      setAppointments(data);
     } catch (error: any) {
       Alert.alert(
         'Error',
@@ -75,6 +91,17 @@ export default function History() {
     router.push({
       pathname: './queue-status',
       params: { appointmentId: appointment._id },
+    });
+  };
+
+  const openFeedback = (appointment: Appointment) => {
+    router.push({
+      pathname: './feedback',
+      params: {
+        appointmentId: appointment._id,
+        ticketNumber: appointment.ticketNumber,
+        serviceName: appointment.serviceId?.name || 'Service',
+      },
     });
   };
 
@@ -149,6 +176,8 @@ export default function History() {
           const canTrackQueue = ['CHECKED_IN', 'FINISHED', 'ABSENT'].includes(
             item.status,
           );
+          const rating = ratings[item._id];
+          const canRate = item.status === 'FINISHED' && !rating;
 
           return (
             <View style={styles.card}>
@@ -192,6 +221,21 @@ export default function History() {
                     <Text style={styles.primaryButtonText}>View QR ticket</Text>
                   </TouchableOpacity>
                 )}
+
+                {canRate && (
+                  <TouchableOpacity
+                    style={styles.ratingButton}
+                    onPress={() => openFeedback(item)}
+                  >
+                    <Text style={styles.ratingButtonText}>Rate service</Text>
+                  </TouchableOpacity>
+                )}
+
+                {rating ? (
+                  <View style={styles.ratedBadge}>
+                    <Text style={styles.ratedText}>Rated {'★'.repeat(rating)}</Text>
+                  </View>
+                ) : null}
 
                 {canCancel && (
                   <TouchableOpacity
@@ -289,6 +333,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   primaryButtonText: { color: '#FFFFFF', fontWeight: '700', fontSize: 13 },
+  ratingButton: {
+    backgroundColor: '#FEF3C7',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  ratingButtonText: { color: '#92400E', fontWeight: '800', fontSize: 13 },
+  ratedBadge: {
+    backgroundColor: '#F0FDF4',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    justifyContent: 'center',
+  },
+  ratedText: { color: '#166534', fontWeight: '800', fontSize: 12 },
   cancelButton: {
     borderWidth: 1,
     borderColor: '#FCA5A5',

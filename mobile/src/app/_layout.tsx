@@ -16,7 +16,8 @@ export default function RootLayout() {
   useEffect(() => {
     if (!isHydrated) return;
 
-    const onPublicAuthScreen = pathname === '/login' || pathname === '/register';
+    const onPublicAuthScreen =
+      pathname === '/login' || pathname === '/register';
 
     if (!token && !onPublicAuthScreen) {
       router.replace('/login');
@@ -47,6 +48,7 @@ export default function RootLayout() {
         />
         <Stack.Screen name="history" options={{ title: 'History' }} />
         <Stack.Screen name="queue-status" options={{ title: 'Live Queue' }} />
+        <Stack.Screen name="feedback" options={{ title: 'Rate Service' }} />
         <Stack.Screen
           name="login"
           options={{ title: 'Login', headerShown: false }}

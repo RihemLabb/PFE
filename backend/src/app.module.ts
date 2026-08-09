@@ -10,6 +10,7 @@ import { CountersModule } from './modules/counters/counters.module';
 import { AgentAssignmentsModule } from './modules/agent-assignments/agent-assignments.module';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { QueueModule } from './modules/queue/queue.module';
+import { FeedbackModule } from './modules/feedback/feedback.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { QueueModule } from './modules/queue/queue.module';
     AgentAssignmentsModule,
     AppointmentsModule,
     QueueModule,
+    FeedbackModule,
   ],
   controllers: [AppController],
   providers: [AppService],
