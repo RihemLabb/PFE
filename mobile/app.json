@@ -7,10 +7,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "smartqueue",
     "userInterfaceStyle": "automatic",
-    "packagerOpts": {
-      "hostType": "lan",
-      "tunnel": false
-    },
     "ios": {
       "icon": "./assets/images/icon.png"
     },
