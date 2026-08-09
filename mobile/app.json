@@ -7,7 +7,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "smartqueue",
     "userInterfaceStyle": "automatic",
-    "hostType": "lan",
     "packagerOpts": {
       "hostType": "lan",
       "tunnel": false
@@ -21,8 +20,7 @@
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
-      },
-      "predictiveBackGestureEnabled": false
+      }
     },
     "web": {
       "output": "static",
