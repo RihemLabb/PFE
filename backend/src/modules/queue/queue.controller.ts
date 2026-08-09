@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { QueueService } from './queue.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -43,11 +51,12 @@ export class QueueController {
   }
 
   @Post('checkin')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.USER, UserRole.AGENT, UserRole.ADMIN)
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Check in user via QR token' })
-  checkIn(@Body() checkInDto: CheckInDto) {
-    return this.queueService.checkIn(checkInDto.qrToken);
+  @ApiOperation({ summary: 'Check in an authorized user via QR token' })
+  checkIn(@Body() checkInDto: CheckInDto, @CurrentUser() user: any) {
+    return this.queueService.checkIn(checkInDto.qrToken, user);
   }
 
   @Post('next')

@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { QueueEntry, QueueEntryDocument } from './schemas/queue-entry.schema';
@@ -239,11 +244,19 @@ export class QueueService {
     };
   }
 
-  async checkIn(qrToken: string) {
+  async checkIn(qrToken: string, actor: QueueActor) {
     const appointment = await this.appointmentModel.findOne({ qrToken });
     if (!appointment) {
       throw new NotFoundException('Invalid QR token. Please check your ticket.');
     }
+
+    if (
+      actor.role === UserRole.USER &&
+      appointment.userId.toString() !== actor.userId
+    ) {
+      throw new ForbiddenException('This QR ticket belongs to another user');
+    }
+    await this.authorizeAgentService(actor, appointment.serviceId.toString());
 
     if (appointment.status === AppointmentStatus.CANCELLED) {
       throw new BadRequestException(
