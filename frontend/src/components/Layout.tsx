@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import {
   Calendar,
   CalendarDays,
+  FileBarChart,
   LayoutDashboard,
   LogOut,
   MonitorCog,
@@ -52,6 +53,12 @@ export default function Layout() {
       label: 'Schedule',
       icon: CalendarDays,
       roles: ['ADMIN'],
+    },
+    {
+      path: '/dashboard/reports',
+      label: 'Reports',
+      icon: FileBarChart,
+      roles: ['ADMIN', 'SUPERVISOR'],
     },
     {
       path: '/dashboard/appointments',

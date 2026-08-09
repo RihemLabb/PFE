@@ -6,6 +6,7 @@ import Services from './pages/Services';
 import Counters from './pages/Counters';
 import Staff from './pages/Staff';
 import Holidays from './pages/Holidays';
+import Reports from './pages/Reports';
 import Appointments from './pages/Appointments';
 import Queue from './pages/Queue';
 import QueueDisplay from './pages/QueueDisplay';
@@ -90,6 +91,17 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={['ADMIN']} fallback="/dashboard">
                   <Holidays />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="reports"
+              element={
+                <ProtectedRoute
+                  allowedRoles={['ADMIN', 'SUPERVISOR']}
+                  fallback="/dashboard/queue"
+                >
+                  <Reports />
                 </ProtectedRoute>
               }
             />
