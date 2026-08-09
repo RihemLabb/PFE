@@ -16,13 +16,14 @@ export default function Register() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const setAuth = useAuthStore((state) => state.setAuth);
 
   const handleRegister = async () => {
     if (!firstName.trim() || !lastName.trim() || !email.trim() || !password) {
-      Alert.alert('Missing information', 'Please complete all fields.');
+      Alert.alert('Missing information', 'Please complete all required fields.');
       return;
     }
 
@@ -32,6 +33,7 @@ export default function Register() {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         email: email.trim().toLowerCase(),
+        phone: phone.trim() || undefined,
         password,
       });
       await setAuth(data.user, data.access_token);
@@ -40,7 +42,9 @@ export default function Register() {
       const message = err.response?.data?.message;
       Alert.alert(
         'Registration failed',
-        Array.isArray(message) ? message.join('\n') : message || 'Could not create account',
+        Array.isArray(message)
+          ? message.join('\n')
+          : message || 'Could not create account',
       );
     } finally {
       setLoading(false);
@@ -82,6 +86,13 @@ export default function Register() {
       />
       <TextInput
         style={styles.input}
+        placeholder="Phone (optional)"
+        value={phone}
+        onChangeText={setPhone}
+        keyboardType="phone-pad"
+      />
+      <TextInput
+        style={styles.input}
         placeholder="Password (minimum 6 characters)"
         value={password}
         onChangeText={setPassword}
@@ -102,7 +113,8 @@ export default function Register() {
 
       <TouchableOpacity onPress={() => router.replace('/login')}>
         <Text style={styles.loginLink}>
-          Already have an account? <Text style={styles.loginLinkStrong}>Sign in</Text>
+          Already have an account?{' '}
+          <Text style={styles.loginLinkStrong}>Sign in</Text>
         </Text>
       </TouchableOpacity>
     </View>

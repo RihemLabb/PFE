@@ -7,6 +7,9 @@ const { width } = Dimensions.get('window');
 export default function Ticket() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const appointmentId = Array.isArray(params.appointmentId)
+    ? params.appointmentId[0]
+    : params.appointmentId;
   const ticketNumber = Array.isArray(params.ticketNumber)
     ? params.ticketNumber[0]
     : params.ticketNumber;
@@ -87,6 +90,19 @@ export default function Ticket() {
       </View>
 
       <View style={styles.buttonContainer}>
+        {appointmentId ? (
+          <Text
+            style={[styles.buttonText, styles.liveButton]}
+            onPress={() =>
+              router.push({
+                pathname: './queue-status',
+                params: { appointmentId },
+              })
+            }
+          >
+            ⏱ Live Queue
+          </Text>
+        ) : null}
         <View style={styles.buttonRow}>
           <View style={styles.buttonWrapper}>
             <Text style={styles.buttonText} onPress={() => router.push('/history')}>
@@ -233,5 +249,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
+  },
+  liveButton: {
+    backgroundColor: '#0F172A',
+    marginHorizontal: 6,
+    marginBottom: 12,
+    shadowColor: '#0F172A',
   },
 });

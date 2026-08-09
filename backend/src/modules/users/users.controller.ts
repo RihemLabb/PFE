@@ -1,10 +1,20 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateStaffDto, UpdateUserStatusDto } from './dto/staff.dto';
+import { UpdateProfileDto } from './dto/profile.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
 
 @ApiTags('Users')
@@ -13,6 +23,21 @@ import { UserRole } from '../../common/enums/user-role.enum';
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
+
+  @Get('me')
+  @ApiOperation({ summary: 'Get the current user profile' })
+  getMe(@CurrentUser() user: { userId: string }) {
+    return this.usersService.getMe(user.userId);
+  }
+
+  @Patch('me')
+  @ApiOperation({ summary: 'Update the current user profile' })
+  updateMe(
+    @CurrentUser() user: { userId: string },
+    @Body() dto: UpdateProfileDto,
+  ) {
+    return this.usersService.updateMe(user.userId, dto);
+  }
 
   @Get('staff')
   @Roles(UserRole.ADMIN, UserRole.SUPERVISOR)

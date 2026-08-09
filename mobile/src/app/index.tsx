@@ -68,7 +68,13 @@ export default function Home() {
           style={styles.inactivePill}
           onPress={() => router.push('/history')}
         >
-          <Text style={styles.inactivePillText}>My Appointments</Text>
+          <Text style={styles.inactivePillText}>Appointments</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.inactivePill}
+          onPress={() => router.push('./profile')}
+        >
+          <Text style={styles.inactivePillText}>Profile</Text>
         </TouchableOpacity>
       </View>
 
@@ -146,26 +152,27 @@ const styles = StyleSheet.create({
   logoutText: { color: '#64748B', fontSize: 12, fontWeight: '600' },
   navRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     paddingHorizontal: 24,
     marginTop: 20,
-    gap: 12,
+    gap: 10,
   },
   activePill: {
     backgroundColor: '#0F172A',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 30,
   },
-  activePillText: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
+  activePillText: { color: '#FFFFFF', fontSize: 13, fontWeight: '600' },
   inactivePill: {
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 30,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
-  inactivePillText: { color: '#64748B', fontSize: 14, fontWeight: '600' },
+  inactivePillText: { color: '#64748B', fontSize: 13, fontWeight: '600' },
   loader: { marginTop: 100 },
   list: { padding: 24, paddingBottom: 100 },
   emptyList: { flexGrow: 1, justifyContent: 'center', padding: 24 },

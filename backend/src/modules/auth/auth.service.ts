@@ -34,6 +34,7 @@ export class AuthService {
       firstName: registerDto.firstName.trim(),
       lastName: registerDto.lastName.trim(),
       email,
+      phone: registerDto.phone?.trim() || undefined,
       password: hashedPassword,
       role,
       isActive: true,
@@ -54,6 +55,7 @@ export class AuthService {
         email: savedUser.email,
         firstName: savedUser.firstName,
         lastName: savedUser.lastName,
+        phone: savedUser.phone,
         role: savedUser.role,
       },
     };
@@ -61,9 +63,7 @@ export class AuthService {
 
   async login(loginDto: LoginDto) {
     const email = loginDto.email.trim().toLowerCase();
-    const user = await this.userModel
-      .findOne({ email })
-      .select('+password');
+    const user = await this.userModel.findOne({ email }).select('+password');
 
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
@@ -88,6 +88,7 @@ export class AuthService {
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
+        phone: user.phone,
         role: user.role,
       },
     };

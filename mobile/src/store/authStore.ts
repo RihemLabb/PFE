@@ -8,6 +8,7 @@ interface User {
   firstName: string;
   lastName: string;
   email: string;
+  phone?: string;
   role: string;
 }
 
@@ -16,8 +17,17 @@ interface AuthState {
   token: string | null;
   isHydrated: boolean;
   setAuth: (user: User, token: string) => Promise<void>;
+  updateUser: (user: User) => Promise<void>;
   logout: () => Promise<void>;
   loadAuth: () => Promise<void>;
+}
+
+async function persistUser(user: User) {
+  if (isWeb) {
+    window.localStorage.setItem('user', JSON.stringify(user));
+  } else {
+    await AsyncStorage.setItem('user', JSON.stringify(user));
+  }
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -26,14 +36,18 @@ export const useAuthStore = create<AuthState>((set) => ({
   isHydrated: false,
 
   setAuth: async (user, token) => {
+    await persistUser(user);
     if (isWeb) {
-      window.localStorage.setItem('user', JSON.stringify(user));
       window.localStorage.setItem('token', token);
     } else {
-      await AsyncStorage.setItem('user', JSON.stringify(user));
       await AsyncStorage.setItem('token', token);
     }
     set({ user, token, isHydrated: true });
+  },
+
+  updateUser: async (user) => {
+    await persistUser(user);
+    set({ user });
   },
 
   logout: async () => {

@@ -28,6 +28,7 @@ interface AvailabilityResponse {
   closingTime: string;
   requiredDocs: string[];
   isOpen: boolean;
+  closureReason?: string | null;
   slots: AvailabilitySlot[];
 }
 
@@ -100,6 +101,7 @@ export default function Booking() {
       router.push({
         pathname: '/ticket',
         params: {
+          appointmentId: data._id,
           ticketNumber: data.ticketNumber,
           qrToken: data.qrToken,
           timeSlot: data.timeSlot,
@@ -174,7 +176,8 @@ export default function Booking() {
         <View style={styles.emptyCard}>
           <Text style={styles.emptyTitle}>Service closed</Text>
           <Text style={styles.emptyText}>
-            Choose another date to view available appointments.
+            {availability?.closureReason ||
+              'Choose another date to view available appointments.'}
           </Text>
         </View>
       ) : availability.slots.length === 0 ? (
@@ -287,7 +290,12 @@ const styles = StyleSheet.create({
   },
   dateCardSelected: { backgroundColor: '#4F46E5', borderColor: '#4F46E5' },
   dateDay: { fontSize: 12, color: '#64748B', fontWeight: '700' },
-  dateLabel: { fontSize: 14, color: '#0F172A', fontWeight: '800', marginTop: 3 },
+  dateLabel: {
+    fontSize: 14,
+    color: '#0F172A',
+    fontWeight: '800',
+    marginTop: 3,
+  },
   dateTextSelected: { color: '#FFFFFF' },
   loader: { marginVertical: 36 },
   emptyCard: {
@@ -318,6 +326,11 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 20,
   },
-  docsTitle: { color: '#312E81', fontWeight: '800', fontSize: 15, marginBottom: 10 },
+  docsTitle: {
+    color: '#312E81',
+    fontWeight: '800',
+    fontSize: 15,
+    marginBottom: 10,
+  },
   docItem: { color: '#4338CA', fontSize: 13, marginTop: 5 },
 });

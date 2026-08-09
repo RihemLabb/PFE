@@ -4,7 +4,9 @@ import {
   IsEmail,
   IsEnum,
   IsNotEmpty,
+  IsOptional,
   IsString,
+  MaxLength,
   MinLength,
 } from 'class-validator';
 import { UserRole } from '../../../common/enums/user-role.enum';
@@ -23,6 +25,12 @@ export class CreateStaffDto {
   @ApiProperty({ example: 'amine@pfe.com' })
   @IsEmail()
   email: string;
+
+  @ApiProperty({ example: '+216 20 123 456', required: false })
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  phone?: string;
 
   @ApiProperty({ example: 'password123' })
   @IsString()
