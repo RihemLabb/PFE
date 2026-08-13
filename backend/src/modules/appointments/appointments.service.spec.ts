@@ -170,6 +170,37 @@ describe('AppointmentsService', () => {
     expect(appointmentModel.find).not.toHaveBeenCalled();
   });
 
+  it('rejects a slot reservation when the atomic counter reaches capacity', async () => {
+    serviceModel.findOneAndUpdate.mockResolvedValue(null);
+    const serviceId = new Types.ObjectId();
+
+    await expect(
+      (service as any).reserveSlot(
+        { _id: serviceId, maxCapacityPerSlot: 2 },
+        new Date('2026-08-14T00:00:00.000Z'),
+        '09:00',
+        2,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(serviceModel.updateOne).toHaveBeenCalledTimes(1);
+    expect(serviceModel.findOneAndUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it('allocates the next daily ticket number from the service sequence', async () => {
+    appointmentModel.countDocuments.mockResolvedValue(4);
+    serviceModel.findByIdAndUpdate.mockResolvedValue({
+      ticketSequences: new Map([['2026-08-14', 5]]),
+    });
+
+    const ticketNumber = await (service as any).getNextTicketNumber(
+      { _id: new Types.ObjectId(), name: 'Passport Renewal' },
+      new Date('2026-08-14T00:00:00.000Z'),
+    );
+
+    expect(ticketNumber).toBe('PAS-005');
+  });
+
   it('closes availability on a configured global holiday', async () => {
     const futureDate = new Date();
     futureDate.setUTCDate(futureDate.getUTCDate() + 7);
