@@ -38,6 +38,9 @@ export class Service {
   @Prop({ type: Map, of: Number, default: {} })
   ticketSequences: Map<string, number>;
 
+  @Prop({ type: Map, of: Number, default: {} })
+  slotReservations: Map<string, number>;
+
   @Prop({ default: true })
   isActive: boolean;
 }
