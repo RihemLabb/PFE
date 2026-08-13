@@ -413,6 +413,26 @@ export class QueueService {
     }
 
     await this.authorizeAgentEntry(actor, entry);
+
+    if (!entry.calledTime) {
+      throw new BadRequestException('Called time is missing for this ticket');
+    }
+
+    const service = await this.serviceModel.findById(entry.serviceId);
+    if (!service) throw new NotFoundException('Service not found');
+
+    const delayMinutes = service.absenceDelayMinutes ?? 15;
+    const eligibleAt =
+      new Date(entry.calledTime).getTime() + delayMinutes * 60 * 1000;
+    const remainingMs = eligibleAt - Date.now();
+
+    if (remainingMs > 0) {
+      const remainingMinutes = Math.ceil(remainingMs / 60000);
+      throw new BadRequestException(
+        `Cannot mark this ticket absent yet. Wait ${remainingMinutes} more minute${remainingMinutes === 1 ? '' : 's'}.`,
+      );
+    }
+
     entry.status = QueueStatus.ABSENT;
     await entry.save();
 
