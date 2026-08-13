@@ -97,6 +97,44 @@ export class AppointmentsService {
     }
   }
 
+  private async getNextTicketNumber(
+    service: ServiceDocument,
+    appointmentDate: Date,
+  ) {
+    const dateKey = appointmentDate.toISOString().slice(0, 10);
+    const sequencePath = `ticketSequences.${dateKey}`;
+    const existingCount = await this.appointmentModel.countDocuments({
+      serviceId: service._id,
+      date: appointmentDate,
+    });
+
+    const updatedService = await this.serviceModel.findByIdAndUpdate(
+      service._id,
+      [
+        {
+          $set: {
+            [sequencePath]: {
+              $add: [{ $ifNull: [`$${sequencePath}`, existingCount] }, 1],
+            },
+          },
+        },
+      ],
+      { new: true },
+    );
+
+    if (!updatedService) throw new NotFoundException('Service not found');
+
+    const sequenceValue = updatedService.ticketSequences?.get(dateKey);
+    if (!sequenceValue) {
+      throw new BadRequestException('Could not allocate a ticket number');
+    }
+
+    const prefix =
+      service.name.replace(/[^a-zA-Z0-9]/g, '').slice(0, 3).toUpperCase() ||
+      'TKT';
+    return `${prefix}-${String(sequenceValue).padStart(3, '0')}`;
+  }
+
   private async resolveScheduleForDate(
     service: ServiceDocument,
     appointmentDate: Date,
@@ -294,20 +332,13 @@ export class AppointmentsService {
       );
     }
 
-    const dailyServiceCount = await this.appointmentModel.countDocuments({
-      serviceId: createAppointmentDto.serviceId,
-      date: appointmentDate,
-    });
-    const prefix =
-      service.name.replace(/[^a-zA-Z0-9]/g, '').slice(0, 3).toUpperCase() ||
-      'TKT';
-
+    const ticketNumber = await this.getNextTicketNumber(service, appointmentDate);
     const appointment = new this.appointmentModel({
       ...createAppointmentDto,
       date: appointmentDate,
       userId,
       qrToken: crypto.randomUUID(),
-      ticketNumber: `${prefix}-${String(dailyServiceCount + 1).padStart(3, '0')}`,
+      ticketNumber,
       status: AppointmentStatus.CONFIRMED,
     });
 
