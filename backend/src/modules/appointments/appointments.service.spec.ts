@@ -40,6 +40,10 @@ describe('AppointmentsService', () => {
     );
   });
 
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('prevents a user from cancelling another user appointment', async () => {
     const ownerId = new Types.ObjectId();
     const requesterId = new Types.ObjectId();
@@ -133,6 +137,31 @@ describe('AppointmentsService', () => {
       { time: '09:00', booked: 1, remaining: 1, available: true },
       { time: '09:30', booked: 0, remaining: 2, available: true },
     ]);
+  });
+
+  it('treats the previous UTC date as past after Tunis midnight', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-08-13T23:30:00.000Z'));
+    serviceModel.findById.mockResolvedValue({
+      _id: new Types.ObjectId(),
+      name: 'Passport Renewal',
+      isActive: true,
+      avgDuration: 15,
+      slotDuration: 30,
+      maxCapacityPerSlot: 2,
+      openingTime: '09:00',
+      closingTime: '10:00',
+      workingDays: [0, 1, 2, 3, 4, 5, 6],
+      requiredDocs: [],
+    });
+
+    const result = await service.getAvailability(
+      '507f1f77bcf86cd799439011',
+      '2026-08-13',
+    );
+
+    expect(result.isOpen).toBe(false);
+    expect(result.closureReason).toBe('Date is in the past');
+    expect(appointmentModel.find).not.toHaveBeenCalled();
   });
 
   it('closes availability on a configured global holiday', async () => {
