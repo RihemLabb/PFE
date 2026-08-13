@@ -20,6 +20,8 @@ describe('AppointmentsService', () => {
     };
     serviceModel = {
       findById: jest.fn(),
+      findByIdAndUpdate: jest.fn(),
+      updateOne: jest.fn().mockResolvedValue({ modifiedCount: 1 }),
       countDocuments: jest.fn(),
     };
     queueEntryModel = {
@@ -66,6 +68,9 @@ describe('AppointmentsService', () => {
     const ownerId = new Types.ObjectId();
     const appointment = {
       userId: ownerId,
+      serviceId: new Types.ObjectId(),
+      date: new Date('2026-08-14T00:00:00.000Z'),
+      timeSlot: '09:00',
       status: AppointmentStatus.CONFIRMED,
       save: jest.fn().mockImplementation(async function () {
         return this;
@@ -81,6 +86,7 @@ describe('AppointmentsService', () => {
 
     expect(result.status).toBe(AppointmentStatus.CANCELLED);
     expect(appointment.save).toHaveBeenCalledTimes(1);
+    expect(serviceModel.updateOne).toHaveBeenCalledTimes(1);
   });
 
   it('rejects cancellation after check-in', async () => {
