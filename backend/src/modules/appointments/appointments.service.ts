@@ -97,6 +97,65 @@ export class AppointmentsService {
     }
   }
 
+  private getSlotReservationPath(appointmentDate: Date, timeSlot: string) {
+    const dateKey = appointmentDate.toISOString().slice(0, 10);
+    const safeSlot = timeSlot.replace(/[^a-zA-Z0-9-]/g, '-');
+    return `slotReservations.${dateKey}__${safeSlot}`;
+  }
+
+  private async reserveSlot(
+    service: ServiceDocument,
+    appointmentDate: Date,
+    timeSlot: string,
+    currentBookings: number,
+  ) {
+    const reservationPath = this.getSlotReservationPath(
+      appointmentDate,
+      timeSlot,
+    );
+
+    await this.serviceModel.updateOne(
+      {
+        _id: service._id,
+        $or: [
+          { [reservationPath]: { $exists: false } },
+          { [reservationPath]: { $lt: currentBookings } },
+        ],
+      },
+      { $set: { [reservationPath]: currentBookings } },
+    );
+
+    const reserved = await this.serviceModel.findOneAndUpdate(
+      {
+        _id: service._id,
+        [reservationPath]: { $lt: service.maxCapacityPerSlot },
+      },
+      { $inc: { [reservationPath]: 1 } },
+      { new: true },
+    );
+
+    if (!reserved) {
+      throw new BadRequestException(
+        `Sorry, the ${timeSlot} slot is fully booked. Maximum capacity (${service.maxCapacityPerSlot}) reached.`,
+      );
+    }
+  }
+
+  private async releaseSlotReservation(
+    serviceId: Types.ObjectId,
+    appointmentDate: Date,
+    timeSlot: string,
+  ) {
+    const reservationPath = this.getSlotReservationPath(
+      appointmentDate,
+      timeSlot,
+    );
+    await this.serviceModel.updateOne(
+      { _id: serviceId, [reservationPath]: { $gt: 0 } },
+      { $inc: { [reservationPath]: -1 } },
+    );
+  }
+
   private async getNextTicketNumber(
     service: ServiceDocument,
     appointmentDate: Date,
@@ -326,23 +385,36 @@ export class AppointmentsService {
       status: { $ne: AppointmentStatus.CANCELLED },
     });
 
-    if (currentBookings >= service.maxCapacityPerSlot) {
-      throw new BadRequestException(
-        `Sorry, the ${createAppointmentDto.timeSlot} slot is fully booked. Maximum capacity (${service.maxCapacityPerSlot}) reached.`,
+    await this.reserveSlot(
+      service,
+      appointmentDate,
+      createAppointmentDto.timeSlot,
+      currentBookings,
+    );
+
+    try {
+      const ticketNumber = await this.getNextTicketNumber(
+        service,
+        appointmentDate,
       );
+      const appointment = new this.appointmentModel({
+        ...createAppointmentDto,
+        date: appointmentDate,
+        userId,
+        qrToken: crypto.randomUUID(),
+        ticketNumber,
+        status: AppointmentStatus.CONFIRMED,
+      });
+
+      return await appointment.save();
+    } catch (error) {
+      await this.releaseSlotReservation(
+        service._id,
+        appointmentDate,
+        createAppointmentDto.timeSlot,
+      ).catch(() => undefined);
+      throw error;
     }
-
-    const ticketNumber = await this.getNextTicketNumber(service, appointmentDate);
-    const appointment = new this.appointmentModel({
-      ...createAppointmentDto,
-      date: appointmentDate,
-      userId,
-      qrToken: crypto.randomUUID(),
-      ticketNumber,
-      status: AppointmentStatus.CONFIRMED,
-    });
-
-    return appointment.save();
   }
 
   async cancel(id: string, requesterUserId: string, requesterRole: UserRole) {
@@ -378,7 +450,13 @@ export class AppointmentsService {
     }
 
     appointment.status = AppointmentStatus.CANCELLED;
-    return appointment.save();
+    const cancelledAppointment = await appointment.save();
+    await this.releaseSlotReservation(
+      appointment.serviceId,
+      appointment.date,
+      appointment.timeSlot,
+    );
+    return cancelledAppointment;
   }
 
   async getDashboardStats() {
