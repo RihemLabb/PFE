@@ -7,6 +7,7 @@ export interface Service {
   avgDuration: number;
   slotDuration: number;
   maxCapacityPerSlot: number;
+  absenceDelayMinutes: number;
   requiredDocs: string[];
   openingTime: string;
   closingTime: string;
@@ -20,6 +21,7 @@ export interface ServicePayload {
   avgDuration: number;
   slotDuration: number;
   maxCapacityPerSlot: number;
+  absenceDelayMinutes?: number;
   requiredDocs?: string[];
   openingTime?: string;
   closingTime?: string;
