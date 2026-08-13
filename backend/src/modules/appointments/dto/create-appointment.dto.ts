@@ -1,28 +1,31 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsMongoId } from 'class-validator';
+import { IsMongoId, IsString, Matches } from 'class-validator';
 
 export class CreateAppointmentDto {
-  @ApiProperty({ 
-    example: '6a317c8bafb66ea0ed0cf513', 
-    description: 'The ID of the service to book' 
+  @ApiProperty({
+    example: '6a317c8bafb66ea0ed0cf513',
+    description: 'The ID of the service to book',
   })
   @IsMongoId()
-  @IsNotEmpty()
   serviceId: string;
 
-  @ApiProperty({ 
-    example: '2026-06-29', 
-    description: 'The date of the appointment (YYYY-MM-DD)' 
+  @ApiProperty({
+    example: '2026-06-29',
+    description: 'The date of the appointment (YYYY-MM-DD)',
   })
   @IsString()
-  @IsNotEmpty()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'Date must be in YYYY-MM-DD format',
+  })
   date: string;
 
-  @ApiProperty({ 
-    example: '10:00', 
-    description: 'The time slot for the appointment' 
+  @ApiProperty({
+    example: '10:00',
+    description: 'The time slot for the appointment (HH:mm)',
   })
   @IsString()
-  @IsNotEmpty()
+  @Matches(/^(?:[01]\d|2[0-3]):[0-5]\d$/, {
+    message: 'Time must be in HH:mm format',
+  })
   timeSlot: string;
 }
