@@ -37,6 +37,7 @@ const defaultForm: ServicePayload = {
   avgDuration: 15,
   slotDuration: 15,
   maxCapacityPerSlot: 1,
+  absenceDelayMinutes: 15,
   requiredDocs: [],
   openingTime: '09:00',
   closingTime: '17:00',
@@ -83,6 +84,7 @@ export default function Services() {
       avgDuration: service.avgDuration,
       slotDuration: service.slotDuration,
       maxCapacityPerSlot: service.maxCapacityPerSlot,
+      absenceDelayMinutes: service.absenceDelayMinutes ?? 15,
       requiredDocs: service.requiredDocs ?? [],
       openingTime: service.openingTime || '09:00',
       closingTime: service.closingTime || '17:00',
@@ -277,6 +279,10 @@ export default function Services() {
                     {formatWorkingDays(service.workingDays)}
                   </span>
                 </div>
+                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                  <Clock className="w-4 h-4" />
+                  <span>No-show grace period: {service.absenceDelayMinutes ?? 15} min</span>
+                </div>
                 <div className="flex items-start gap-2 text-gray-600 dark:text-gray-400">
                   <FileText className="w-4 h-4 mt-0.5" />
                   <span>
@@ -400,6 +406,24 @@ export default function Services() {
                         setForm({
                           ...form,
                           maxCapacityPerSlot: Number(event.target.value),
+                        })
+                      }
+                      className="form-input"
+                    />
+                  </Field>
+
+                  <Field label="Absence grace period (min)">
+                    <input
+                      type="number"
+                      min={0}
+                      max={240}
+                      step={1}
+                      required
+                      value={form.absenceDelayMinutes ?? 15}
+                      onChange={(event) =>
+                        setForm({
+                          ...form,
+                          absenceDelayMinutes: Number(event.target.value),
                         })
                       }
                       className="form-input"
