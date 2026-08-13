@@ -18,6 +18,12 @@ import { Holiday, HolidayDocument } from '../holidays/schemas/holiday.schema';
 import { AppointmentStatus } from '../../common/enums/appointment-status.enum';
 import { QueueStatus } from '../../common/enums/queue-status.enum';
 import { UserRole } from '../../common/enums/user-role.enum';
+import {
+  addDaysToDateKey,
+  dateKeyToUtcDate,
+  getBusinessDayRange,
+  getDateKeyInTimeZone,
+} from '../../common/utils/business-date';
 
 @Injectable()
 export class AppointmentsService {
@@ -31,24 +37,19 @@ export class AppointmentsService {
     private holidayModel: Model<HolidayDocument>,
   ) {}
 
-  private getUtcDayRange(date = new Date()) {
-    const start = new Date(
-      Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
-    );
-    const end = new Date(start);
-    end.setUTCDate(end.getUTCDate() + 1);
-    return { start, end };
+  private getAppointmentDayRange(dateKey: string) {
+    return {
+      start: dateKeyToUtcDate(dateKey),
+      end: dateKeyToUtcDate(addDaysToDateKey(dateKey, 1)),
+    };
   }
 
   private parseDateOnly(date: string) {
-    const parsed = new Date(`${date}T00:00:00.000Z`);
-    if (
-      Number.isNaN(parsed.getTime()) ||
-      parsed.toISOString().slice(0, 10) !== date
-    ) {
+    try {
+      return dateKeyToUtcDate(date);
+    } catch {
       throw new BadRequestException('Invalid appointment date');
     }
-    return parsed;
   }
 
   private timeToMinutes(time: string) {
@@ -89,8 +90,9 @@ export class AppointmentsService {
   }
 
   private ensureNotPast(appointmentDate: Date) {
-    const today = this.getUtcDayRange().start;
-    if (appointmentDate < today) {
+    const appointmentKey = appointmentDate.toISOString().slice(0, 10);
+    const todayKey = getDateKeyInTimeZone();
+    if (appointmentKey < todayKey) {
       throw new BadRequestException('Cannot book an appointment in the past');
     }
   }
@@ -169,8 +171,8 @@ export class AppointmentsService {
     }
 
     const appointmentDate = this.parseDateOnly(date);
-    const today = this.getUtcDayRange().start;
-    if (appointmentDate < today) {
+    const todayKey = getDateKeyInTimeZone();
+    if (date < todayKey) {
       return {
         serviceId,
         serviceName: service.name,
@@ -349,7 +351,10 @@ export class AppointmentsService {
   }
 
   async getDashboardStats() {
-    const { start, end } = this.getUtcDayRange();
+    const todayKey = getDateKeyInTimeZone();
+    const { start: appointmentStart, end: appointmentEnd } =
+      this.getAppointmentDayRange(todayKey);
+    const { start: queueStart, end: queueEnd } = getBusinessDayRange();
 
     const [
       totalServices,
@@ -361,25 +366,27 @@ export class AppointmentsService {
       waiting,
     ] = await Promise.all([
       this.serviceModel.countDocuments({ isActive: true }),
-      this.appointmentModel.countDocuments({ date: { $gte: start, $lt: end } }),
       this.appointmentModel.countDocuments({
-        date: { $gte: start, $lt: end },
+        date: { $gte: appointmentStart, $lt: appointmentEnd },
+      }),
+      this.appointmentModel.countDocuments({
+        date: { $gte: appointmentStart, $lt: appointmentEnd },
         status: AppointmentStatus.CANCELLED,
       }),
       this.queueEntryModel
-        .find({ date: { $gte: start, $lt: end } })
+        .find({ date: { $gte: queueStart, $lt: queueEnd } })
         .select('status checkInTime calledTime')
         .lean(),
       this.queueEntryModel.countDocuments({
-        date: { $gte: start, $lt: end },
+        date: { $gte: queueStart, $lt: queueEnd },
         status: QueueStatus.FINISHED,
       }),
       this.queueEntryModel.countDocuments({
-        date: { $gte: start, $lt: end },
+        date: { $gte: queueStart, $lt: queueEnd },
         status: QueueStatus.ABSENT,
       }),
       this.queueEntryModel.countDocuments({
-        date: { $gte: start, $lt: end },
+        date: { $gte: queueStart, $lt: queueEnd },
         status: QueueStatus.WAITING,
       }),
     ]);
@@ -402,10 +409,9 @@ export class AppointmentsService {
 
     const weeklyData = await Promise.all(
       Array.from({ length: 7 }, async (_, index) => {
-        const dayStart = new Date(start);
-        dayStart.setUTCDate(start.getUTCDate() - (6 - index));
-        const dayEnd = new Date(dayStart);
-        dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
+        const dayKey = addDaysToDateKey(todayKey, index - 6);
+        const { start: dayStart, end: dayEnd } =
+          this.getAppointmentDayRange(dayKey);
 
         const [appointments, completed] = await Promise.all([
           this.appointmentModel.countDocuments({
