@@ -4,6 +4,10 @@ import { QueueService } from './queue.service';
 import { QueueStatus } from '../../common/enums/queue-status.enum';
 import { AppointmentStatus } from '../../common/enums/appointment-status.enum';
 import { UserRole } from '../../common/enums/user-role.enum';
+import {
+  getBusinessDayRange,
+  getDateKeyInTimeZone,
+} from '../../common/utils/business-date';
 
 describe('QueueService', () => {
   let queueEntryModel: any;
@@ -37,11 +41,15 @@ describe('QueueService', () => {
     );
   });
 
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   const todayAppointment = () => ({
     _id: new Types.ObjectId(),
     userId: new Types.ObjectId(),
     serviceId: new Types.ObjectId(),
-    date: new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00.000Z`),
+    date: new Date(`${getDateKeyInTimeZone()}T00:00:00.000Z`),
     status: AppointmentStatus.CHECKED_IN,
     save: jest.fn(),
   });
@@ -95,6 +103,46 @@ describe('QueueService', () => {
           role: UserRole.USER,
         }),
       ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('treats the Tunis calendar date as today near the UTC day boundary', async () => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-08-13T23:30:00.000Z'));
+      const appointment = {
+        _id: new Types.ObjectId(),
+        userId: new Types.ObjectId(),
+        serviceId: new Types.ObjectId(),
+        date: new Date('2026-08-14T00:00:00.000Z'),
+        status: AppointmentStatus.CHECKED_IN,
+        save: jest.fn(),
+      };
+      const existingEntry = {
+        _id: new Types.ObjectId(),
+        appointmentId: appointment._id,
+        status: QueueStatus.WAITING,
+        position: 1,
+      };
+
+      appointmentModel.findOne.mockResolvedValue(appointment);
+      queueEntryModel.findOne.mockResolvedValue(existingEntry);
+
+      await expect(
+        service.checkIn('tunis-midnight-ticket', {
+          userId: appointment.userId.toString(),
+          role: UserRole.USER,
+        }),
+      ).resolves.toBe(existingEntry);
+    });
+  });
+
+  describe('business day boundaries', () => {
+    it('maps a Tunis business day to the matching UTC range', () => {
+      const range = getBusinessDayRange(
+        new Date('2026-08-13T23:30:00.000Z'),
+      );
+
+      expect(range.dateKey).toBe('2026-08-14');
+      expect(range.start.toISOString()).toBe('2026-08-13T23:00:00.000Z');
+      expect(range.end.toISOString()).toBe('2026-08-14T23:00:00.000Z');
     });
   });
 
