@@ -32,6 +32,9 @@ export class Service {
   @Prop({ type: [Number], default: [1, 2, 3, 4, 5] })
   workingDays: number[];
 
+  @Prop({ required: true, min: 0, max: 240, default: 15 })
+  absenceDelayMinutes: number;
+
   @Prop({ default: true })
   isActive: boolean;
 }
