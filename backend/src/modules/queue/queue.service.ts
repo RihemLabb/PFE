@@ -18,6 +18,10 @@ import { QueueStatus } from '../../common/enums/queue-status.enum';
 import { AppointmentStatus } from '../../common/enums/appointment-status.enum';
 import { CounterStatus } from '../../common/enums/counter-status.enum';
 import { UserRole } from '../../common/enums/user-role.enum';
+import {
+  getBusinessDayRange,
+  getDateKeyInTimeZone,
+} from '../../common/utils/business-date';
 
 interface QueueActor {
   userId: string;
@@ -39,12 +43,7 @@ export class QueueService {
   ) {}
 
   private getDayRange(date = new Date()) {
-    const start = new Date(date);
-    start.setHours(0, 0, 0, 0);
-
-    const end = new Date(start);
-    end.setDate(end.getDate() + 1);
-
+    const { start, end } = getBusinessDayRange(date);
     return { start, end };
   }
 
@@ -274,8 +273,8 @@ export class QueueService {
       );
     }
 
-    const todayStr = new Date().toISOString().split('T')[0];
-    const apptStr = new Date(appointment.date).toISOString().split('T')[0];
+    const todayStr = getDateKeyInTimeZone(new Date());
+    const apptStr = new Date(appointment.date).toISOString().slice(0, 10);
 
     if (todayStr !== apptStr) {
       throw new BadRequestException(
