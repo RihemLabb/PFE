@@ -1,18 +1,10 @@
-import {
-  BadRequestException,
-  Body,
-  Controller,
-  Get,
-  Param,
-  Post,
-  Req,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AppointmentsService } from './appointments.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 
@@ -34,14 +26,8 @@ export class AppointmentsController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Get my appointments (Any logged-in user)' })
-  findMyAppointments(@Req() req: any) {
-    const userId = req.user?.userId;
-
-    if (!userId) {
-      throw new BadRequestException('User ID not found in token payload');
-    }
-
-    return this.appointmentsService.findMyAppointments(userId);
+  findMyAppointments(@CurrentUser() user: any) {
+    return this.appointmentsService.findMyAppointments(user.userId);
   }
 
   @Get('dashboard/stats')
@@ -54,30 +40,23 @@ export class AppointmentsController {
   }
 
   @Post()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.USER)
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Create an appointment (Any logged-in user)' })
-  create(@Body() createAppointmentDto: CreateAppointmentDto, @Req() req: any) {
-    const userId = req.user?.userId;
-    if (!userId) {
-      throw new BadRequestException('User ID not found in token payload');
-    }
-
-    return this.appointmentsService.create(createAppointmentDto, userId);
+  @ApiOperation({ summary: 'Create an appointment (User)' })
+  create(
+    @Body() createAppointmentDto: CreateAppointmentDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.appointmentsService.create(createAppointmentDto, user.userId);
   }
 
   @Post(':id/cancel')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.USER, UserRole.ADMIN, UserRole.SUPERVISOR)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Cancel an appointment (Owner/Admin/Supervisor)' })
-  cancel(@Param('id') id: string, @Req() req: any) {
-    const userId = req.user?.userId;
-    const role = req.user?.role as UserRole;
-
-    if (!userId || !role) {
-      throw new BadRequestException('Invalid token payload');
-    }
-
-    return this.appointmentsService.cancel(id, userId, role);
+  cancel(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.appointmentsService.cancel(id, user.userId, user.role);
   }
 }
