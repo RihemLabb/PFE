@@ -64,6 +64,18 @@ export class CreateServiceDto {
   @Max(6, { each: true })
   @IsOptional()
   workingDays?: number[];
+
+  @ApiProperty({
+    example: 15,
+    description: 'Minutes after a ticket is called before it can be marked absent',
+    required: false,
+    default: 15,
+  })
+  @IsInt()
+  @Min(0)
+  @Max(240)
+  @IsOptional()
+  absenceDelayMinutes?: number;
 }
 
 export class UpdateServiceDto {
@@ -122,4 +134,15 @@ export class UpdateServiceDto {
   @Max(6, { each: true })
   @IsOptional()
   workingDays?: number[];
+
+  @ApiProperty({
+    example: 15,
+    description: 'Minutes after a ticket is called before it can be marked absent',
+    required: false,
+  })
+  @IsInt()
+  @Min(0)
+  @Max(240)
+  @IsOptional()
+  absenceDelayMinutes?: number;
 }
