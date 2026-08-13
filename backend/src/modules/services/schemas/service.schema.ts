@@ -35,6 +35,9 @@ export class Service {
   @Prop({ required: true, min: 0, max: 240, default: 15 })
   absenceDelayMinutes: number;
 
+  @Prop({ type: Map, of: Number, default: {} })
+  ticketSequences: Map<string, number>;
+
   @Prop({ default: true })
   isActive: boolean;
 }
