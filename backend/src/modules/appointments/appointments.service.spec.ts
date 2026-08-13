@@ -21,6 +21,7 @@ describe('AppointmentsService', () => {
     serviceModel = {
       findById: jest.fn(),
       findByIdAndUpdate: jest.fn(),
+      findOneAndUpdate: jest.fn(),
       updateOne: jest.fn().mockResolvedValue({ modifiedCount: 1 }),
       countDocuments: jest.fn(),
     };
