@@ -53,6 +53,41 @@ export class QueueService {
     }
   }
 
+  private async getNextQueuePosition(
+    serviceId: Types.ObjectId,
+    now = new Date(),
+  ) {
+    const { start, end, dateKey } = getBusinessDayRange(now);
+    const sequencePath = `queueSequences.${dateKey}`;
+    const existingCount = await this.queueEntryModel.countDocuments({
+      serviceId,
+      date: { $gte: start, $lt: end },
+    });
+
+    const updatedService = await this.serviceModel.findByIdAndUpdate(
+      serviceId,
+      [
+        {
+          $set: {
+            [sequencePath]: {
+              $add: [{ $ifNull: [`$${sequencePath}`, existingCount] }, 1],
+            },
+          },
+        },
+      ],
+      { new: true },
+    );
+
+    if (!updatedService) throw new NotFoundException('Service not found');
+
+    const position = updatedService.queueSequences?.get(dateKey);
+    if (!position) {
+      throw new BadRequestException('Could not allocate a queue position');
+    }
+
+    return position;
+  }
+
   private async authorizeAgentService(actor: QueueActor, serviceId: string) {
     if (actor.role === UserRole.AGENT) {
       await this.agentAssignmentsService.assertAgentService(
@@ -200,7 +235,9 @@ export class QueueService {
         const finishTime = new Date(sample.finishTime).getTime();
         return (finishTime - startTime) / 60000;
       })
-      .filter((minutes) => Number.isFinite(minutes) && minutes > 0 && minutes < 240);
+      .filter(
+        (minutes) => Number.isFinite(minutes) && minutes > 0 && minutes < 240,
+      );
 
     const averageServiceMinutes = processingSamples.length
       ? Math.max(
@@ -274,7 +311,7 @@ export class QueueService {
     }
 
     const todayStr = getDateKeyInTimeZone(new Date());
-    const apptStr = new Date(appointment.date).toISOString().slice(0, 10);
+    const apptStr = new Date(appointment.date).toISOString().split('T')[0];
 
     if (todayStr !== apptStr) {
       throw new BadRequestException(
@@ -296,19 +333,14 @@ export class QueueService {
       );
     }
 
-    const { start, end } = this.getDayRange();
-    const count = await this.queueEntryModel.countDocuments({
-      serviceId: appointment.serviceId,
-      date: { $gte: start, $lt: end },
-    });
-
     const now = new Date();
+    const position = await this.getNextQueuePosition(appointment.serviceId, now);
     const entry = new this.queueEntryModel({
       appointmentId: appointment._id,
       serviceId: appointment.serviceId,
       date: now,
       checkInTime: now,
-      position: count + 1,
+      position,
       status: QueueStatus.WAITING,
     });
 
