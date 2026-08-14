@@ -8,13 +8,14 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { QueueService } from './queue.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../../common/guards/roles.guard';
-import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { RateLimit } from '../../common/decorators/rate-limit.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CheckInDto } from './dto/check-in.dto';
+import { QueueService } from './queue.service';
 
 @ApiTags('Queue')
 @Controller('queue')
@@ -51,6 +52,7 @@ export class QueueController {
   }
 
   @Post('checkin')
+  @RateLimit(30, 60 * 1000)
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.USER, UserRole.AGENT, UserRole.ADMIN)
   @ApiBearerAuth('access-token')
