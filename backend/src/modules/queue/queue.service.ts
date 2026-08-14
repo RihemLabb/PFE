@@ -53,6 +53,21 @@ export class QueueService {
     }
   }
 
+  private isDuplicateKeyError(error: unknown) {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error as { code?: number }).code === 11000
+    );
+  }
+
+  private async syncAppointmentCheckedIn(appointment: AppointmentDocument) {
+    if (appointment.status === AppointmentStatus.CHECKED_IN) return;
+    appointment.status = AppointmentStatus.CHECKED_IN;
+    await appointment.save();
+  }
+
   private async getNextQueuePosition(
     serviceId: Types.ObjectId,
     now = new Date(),
@@ -325,6 +340,7 @@ export class QueueService {
 
     if (existingEntry) {
       if (existingEntry.status === QueueStatus.WAITING) {
+        await this.syncAppointmentCheckedIn(appointment);
         return existingEntry;
       }
 
@@ -344,10 +360,30 @@ export class QueueService {
       status: QueueStatus.WAITING,
     });
 
-    appointment.status = AppointmentStatus.CHECKED_IN;
-    await appointment.save();
+    try {
+      const savedEntry = await entry.save();
+      await this.syncAppointmentCheckedIn(appointment);
+      return savedEntry;
+    } catch (error) {
+      if (this.isDuplicateKeyError(error)) {
+        const racedEntry = await this.queueEntryModel.findOne({
+          appointmentId: appointment._id,
+        });
 
-    return entry.save();
+        if (racedEntry) {
+          if (racedEntry.status !== QueueStatus.WAITING) {
+            throw new BadRequestException(
+              `This ticket has already been checked in and is currently ${racedEntry.status}`,
+            );
+          }
+
+          await this.syncAppointmentCheckedIn(appointment);
+          return racedEntry;
+        }
+      }
+
+      throw error;
+    }
   }
 
   async callNext(

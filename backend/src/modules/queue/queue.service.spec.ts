@@ -16,17 +16,18 @@ describe('QueueService', () => {
   let service: QueueService;
 
   beforeEach(() => {
-    queueEntryModel = {
+    queueEntryModel = Object.assign(jest.fn(), {
       findOne: jest.fn(),
       findById: jest.fn(),
       countDocuments: jest.fn(),
-    };
+    });
     appointmentModel = {
       findOne: jest.fn(),
       findByIdAndUpdate: jest.fn(),
     };
     serviceModel = {
       findById: jest.fn(),
+      findByIdAndUpdate: jest.fn(),
     };
 
     service = new QueueService(
@@ -76,6 +77,39 @@ describe('QueueService', () => {
         service.checkIn('same-qr-token', ownerActor(appointment)),
       ).resolves.toBe(existingEntry);
       expect(queueEntryModel.countDocuments).not.toHaveBeenCalled();
+    });
+
+    it('recovers cleanly when concurrent scans race to create the queue entry', async () => {
+      const appointment = todayAppointment();
+      appointment.status = AppointmentStatus.CONFIRMED;
+
+      const winnerEntry = {
+        _id: new Types.ObjectId(),
+        appointmentId: appointment._id,
+        status: QueueStatus.WAITING,
+        position: 1,
+      };
+      const entrySave = jest.fn().mockRejectedValue(
+        Object.assign(new Error('duplicate queue entry'), { code: 11000 }),
+      );
+
+      appointmentModel.findOne.mockResolvedValue(appointment);
+      queueEntryModel.findOne
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(winnerEntry);
+      queueEntryModel.countDocuments.mockResolvedValue(0);
+      queueEntryModel.mockImplementation(() => ({ save: entrySave }));
+      serviceModel.findByIdAndUpdate.mockResolvedValue({
+        queueSequences: new Map([[getDateKeyInTimeZone(), 1]]),
+      });
+
+      await expect(
+        service.checkIn('concurrent-ticket', ownerActor(appointment)),
+      ).resolves.toBe(winnerEntry);
+
+      expect(entrySave).toHaveBeenCalledTimes(1);
+      expect(appointment.status).toBe(AppointmentStatus.CHECKED_IN);
+      expect(appointment.save).toHaveBeenCalledTimes(1);
     });
 
     it('does not reset a finished ticket back to waiting', async () => {
