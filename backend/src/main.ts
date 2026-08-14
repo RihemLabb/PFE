@@ -4,7 +4,10 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import compression from 'compression';
 import helmet from 'helmet';
+import mongoose from 'mongoose';
 import { AppModule } from './app.module';
+
+mongoose.set('updatePipeline', true);
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
