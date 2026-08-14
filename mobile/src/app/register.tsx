@@ -36,7 +36,7 @@ export default function Register() {
         phone: phone.trim() || undefined,
         password,
       });
-      await setAuth(data.user, data.access_token);
+      await setAuth(data.user, data.access_token, data.refresh_token);
       router.replace('/');
     } catch (err: any) {
       const message = err.response?.data?.message;

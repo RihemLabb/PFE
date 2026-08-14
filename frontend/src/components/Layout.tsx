@@ -13,6 +13,7 @@ import {
   UserCog,
   Users,
 } from 'lucide-react';
+import api from '../api/axios';
 import { useAuthStore } from '../store/authStore';
 import { useTheme } from '../context/ThemeContext';
 import CommandPalette from './CommandPalette';
@@ -74,7 +75,11 @@ export default function Layout() {
     },
   ].filter((item) => (user ? item.roles.includes(user.role) : false));
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const refreshToken = useAuthStore.getState().refreshToken;
+    if (refreshToken) {
+      await api.post('/auth/logout', { refreshToken }).catch(() => undefined);
+    }
     logout();
     navigate('/login', { replace: true });
   };

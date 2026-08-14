@@ -30,7 +30,7 @@ export default function Login() {
         email: email.trim().toLowerCase(),
         password,
       });
-      await setAuth(data.user, data.access_token);
+      await setAuth(data.user, data.access_token, data.refresh_token);
       router.replace('/');
     } catch (err: any) {
       Alert.alert('Sign in failed', err.response?.data?.message || 'Login failed');

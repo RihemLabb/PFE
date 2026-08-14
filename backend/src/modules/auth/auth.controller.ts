@@ -4,6 +4,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RateLimit } from '../../common/decorators/rate-limit.decorator';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterDto } from './dto/register.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
@@ -24,6 +25,20 @@ export class AuthController {
   @ApiOperation({ summary: 'Login user' })
   login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
+  }
+
+  @Post('refresh')
+  @RateLimit(30, 60 * 1000)
+  @ApiOperation({ summary: 'Rotate a refresh token and issue a new access token' })
+  refresh(@Body() refreshTokenDto: RefreshTokenDto) {
+    return this.authService.refresh(refreshTokenDto.refreshToken);
+  }
+
+  @Post('logout')
+  @RateLimit(30, 60 * 1000)
+  @ApiOperation({ summary: 'Revoke a refresh token' })
+  logout(@Body() refreshTokenDto: RefreshTokenDto) {
+    return this.authService.logout(refreshTokenDto.refreshToken);
   }
 
   @Get('me')

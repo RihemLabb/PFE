@@ -44,6 +44,10 @@ export default function Home() {
   }, []);
 
   const handleLogout = async () => {
+    const refreshToken = useAuthStore.getState().refreshToken;
+    if (refreshToken) {
+      await api.post('/auth/logout', { refreshToken }).catch(() => undefined);
+    }
     await logout();
     router.replace('/login');
   };
