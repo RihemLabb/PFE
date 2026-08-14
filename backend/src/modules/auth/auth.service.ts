@@ -80,9 +80,7 @@ export class AuthService {
   }
 
   private async buildAuthResponse(user: UserDocument) {
-    const refreshToken = await this.createRefreshSession(
-      user._id as Types.ObjectId,
-    );
+    const refreshToken = await this.createRefreshSession(user._id);
 
     return {
       access_token: this.signAccessToken(user),
