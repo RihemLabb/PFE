@@ -5,7 +5,9 @@ import { useAuthStore } from '../store/authStore';
 
 export default function RootLayout() {
   const loadAuth = useAuthStore((state) => state.loadAuth);
+  const logout = useAuthStore((state) => state.logout);
   const token = useAuthStore((state) => state.token);
+  const user = useAuthStore((state) => state.user);
   const isHydrated = useAuthStore((state) => state.isHydrated);
   const pathname = usePathname();
 
@@ -19,12 +21,17 @@ export default function RootLayout() {
     const onPublicAuthScreen =
       pathname === '/login' || pathname === '/register';
 
+    if (token && user && user.role !== 'USER') {
+      void logout().then(() => router.replace('/login'));
+      return;
+    }
+
     if (!token && !onPublicAuthScreen) {
       router.replace('/login');
     } else if (token && onPublicAuthScreen) {
       router.replace('/');
     }
-  }, [isHydrated, pathname, token]);
+  }, [isHydrated, logout, pathname, token, user]);
 
   return (
     <>

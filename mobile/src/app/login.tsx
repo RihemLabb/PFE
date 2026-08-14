@@ -30,6 +30,18 @@ export default function Login() {
         email: email.trim().toLowerCase(),
         password,
       });
+
+      if (data.user?.role !== 'USER') {
+        await api
+          .post('/auth/logout', { refreshToken: data.refresh_token })
+          .catch(() => undefined);
+        Alert.alert(
+          'Client account required',
+          'The mobile app is for USER accounts. Admin, supervisor, and agent accounts must use the staff web portal.',
+        );
+        return;
+      }
+
       await setAuth(data.user, data.access_token, data.refresh_token);
       router.replace('/');
     } catch (err: any) {
