@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Put,
+  Param,
+  Delete,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { CountersService } from './counters.service';
 import { CreateCounterDto, UpdateCounterDto } from './dto/counter.dto';
@@ -22,7 +31,9 @@ export class CountersController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all counters (populated with Service details)' })
+  @ApiOperation({
+    summary: 'Get all counters (populated with Service details)',
+  })
   findAll() {
     return this.countersService.findAll();
   }

@@ -7,6 +7,10 @@ import { ServicesModule } from './modules/services/services.module';
 import { CountersModule } from './modules/counters/counters.module';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { QueueModule } from './modules/queue/queue.module';
+import { SchedulesModule } from './modules/schedules/schedules.module';
+import { HolidaysModule } from './modules/holidays/holidays.module';
+import { SettingsModule } from './modules/settings/settings.module';
+import { AvailabilityModule } from './modules/availability/availability.module';
 
 @Module({
   imports: [
@@ -26,6 +30,10 @@ import { QueueModule } from './modules/queue/queue.module';
     CountersModule,
     AppointmentsModule,
     QueueModule,
+    SchedulesModule,
+    HolidaysModule,
+    SettingsModule,
+    AvailabilityModule,
   ],
 })
 export class AppModule {}

@@ -6,7 +6,7 @@ import { CountersController } from './counters.controller';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: Counter.name, schema: CounterSchema }])
+    MongooseModule.forFeature([{ name: Counter.name, schema: CounterSchema }]),
   ],
   controllers: [CountersController],
   providers: [CountersService],

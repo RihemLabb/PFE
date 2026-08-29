@@ -1,74 +1,65 @@
-import { Controller, Get, Post, Body, Param, UseGuards, Req, BadRequestException } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { AppointmentsService } from './appointments.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
-import { CreateAppointmentDto } from './dto/create-appointment.dto';
-
-@ApiTags('Appointments')
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import {
+  CancelAppointmentDto,
+  CreateAppointmentDto,
+  UpdateAppointmentDto,
+} from './dto/appointment.dto';
 @Controller('appointments')
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class AppointmentsController {
-  constructor(private readonly appointmentsService: AppointmentsService) {}
-
-  @Get()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.SUPERVISOR)
-  @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Get all appointments (Admin/Supervisor)' })
-  findAll() {
-    return this.appointmentsService.findAll();
+  constructor(private service: AppointmentsService) {}
+  @Get() @Roles(UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.AGENT) all(
+    @Query() q: Record<string, string>,
+  ) {
+    return this.service.findAll(q);
   }
-
-  @Get('my-appointments')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Get my appointments (Any logged-in user)' })
-  findMyAppointments(@Req() req: any) {
-    console.log('=== DEBUG CONTROLLER ===');
-    console.log('FULL REQ.USER:', JSON.stringify(req.user));
-    console.log('========================');
-
-    const userId = req.user?._id || req.user?.userId || req.user?.sub || req.user?.id;
-
-    if (!userId) {
-      throw new BadRequestException('User ID not found in token payload');
-    }
-
-    return this.appointmentsService.findMyAppointments(userId);
+  @Get('my-appointments') mine(@CurrentUser() u: any) {
+    return this.service.findMine(u.userId);
   }
-
-  @Post()
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Create an appointment (Any logged-in user)' })
-  create(@Body() createAppointmentDto: CreateAppointmentDto, @Req() req: any) {
-    const userId = req.user?._id || req.user?.userId || req.user?.sub || req.user?.id;
-    return this.appointmentsService.create(createAppointmentDto, userId);
+  @Get('dashboard/stats') @Roles(UserRole.ADMIN, UserRole.SUPERVISOR) stats() {
+    return this.service.stats();
   }
-
-  @Post(':id/cancel')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Cancel an appointment (User)' })
-  cancel(@Param('id') id: string) {
-    return this.appointmentsService.cancel(id);
+  @Get(':id') one(@Param('id') id: string, @CurrentUser() u: any) {
+    return this.service.one(id, u);
   }
-
-  @Get('dashboard/stats')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.SUPERVISOR)
-  @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Get dashboard stats (Admin)' })
-  getStats() {
-    return {
-      totalServices: 2,
-      todayAppointments: 5,
-      checkedIn: 2,
-      finished: 1,
-      cancelled: 0,
-      waiting: 2
-    };
+  @Post() create(@Body() d: CreateAppointmentDto, @CurrentUser() u: any) {
+    return this.service.create(d, u.userId);
+  }
+  @Patch(':id') update(
+    @Param('id') id: string,
+    @Body() d: UpdateAppointmentDto,
+    @CurrentUser() u: any,
+  ) {
+    return this.service.update(id, d, u);
+  }
+  @Put(':id/cancel') cancel(
+    @Param('id') id: string,
+    @Body() d: CancelAppointmentDto,
+    @CurrentUser() u: any,
+  ) {
+    return this.service.cancel(id, d, u);
+  }
+  @Post(':id/cancel') cancelLegacy(
+    @Param('id') id: string,
+    @Body() d: CancelAppointmentDto,
+    @CurrentUser() u: any,
+  ) {
+    return this.service.cancel(id, d, u);
   }
 }

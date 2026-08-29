@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Megaphone, Clock, CheckCircle2 } from 'lucide-react';
 import { getTodayQueue } from '../api/appointmentsApi';
 

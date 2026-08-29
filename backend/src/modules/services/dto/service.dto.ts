@@ -1,4 +1,12 @@
-import { IsString, IsNotEmpty, IsNumber, IsArray, IsOptional, IsBoolean, Min } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsNumber,
+  IsArray,
+  IsOptional,
+  IsBoolean,
+  Min,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateServiceDto {
@@ -58,7 +66,7 @@ export class UpdateServiceDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
-    @ApiProperty({ example: 15, description: 'Slot duration in minutes' })
+  @ApiProperty({ example: 15, description: 'Slot duration in minutes' })
   @IsNumber()
   @Min(5)
   slotDuration: number;

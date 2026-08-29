@@ -1,104 +1,69 @@
-# Smart Queue & Appointment System - PFE
+# Smart Queue — PFE Project 3
 
-Application intelligente de gestion de rendez-vous et de file d'attente avec génération de tickets QR Code.
+Solution web et mobile de gestion des rendez-vous et des files d’attente avec tickets QR.
 
-## 🎯 Objectif
+## Applications
 
-Permettre aux usagers de prendre rendez-vous en ligne, de recevoir un ticket QR, et aux agents de gérer la file d'attente de manière efficace via un dashboard web et une application mobile.
+- `backend/` : API NestJS, MongoDB, JWT, Swagger.
+- `frontend/` : portail React pour administration, agents et supervision.
+- `mobile/` : application usager Expo **SDK 51**.
+- `docs/` : architecture et matrice de conformité au brief.
 
-## 🏗️ Architecture
+## Démarrage local
 
-Projet-PFE/
-├── backend/ → API NestJS (TypeScript, MongoDB, JWT)
-├── frontend/ → Dashboard Web (React, Vite, Tailwind)
-├── mobile/ → App Mobile Usager (Expo, React Native)
-└── docs/ → Documentation, captures, rapport
-
-## 🛠️ Technologies
-
-### Backend
-
-- **NestJS** (TypeScript)
-- **MongoDB** + Mongoose
-- **JWT** (authentification)
-- **bcrypt** (hachage des mots de passe)
-- **Swagger** (documentation API)
-- **class-validator** (validation DTO)
-
-### Frontend Web
-
-- **React 18** + TypeScript
-- **Vite**
-- **Tailwind CSS**
-- **Axios** + **Zustand** (state management)
-- **React Router**
-
-### Mobile
-
-- **Expo** (React Native)
-- **Expo Router**
-- **react-native-qrcode-svg**
-- **AsyncStorage**
-
-## 🚀 Installation
-
-### Prérequis
-
-- Node.js 18+
-- MongoDB (local ou Atlas)
-- npm ou yarn
-
-### 1. Backend
+Prérequis : Node.js 18+, npm et MongoDB. MongoDB peut être lancé avec `docker compose up -d`.
 
 ```bash
 cd backend
 cp .env.example .env
-
-npm install
+npm ci
 npm run seed
 npm run start:dev
-
-Le serveur tourne sur http://localhost:3000
-Swagger disponible sur http://localhost:3000/api/docs
-
-2. Frontend Web
-cd frontend
-npm install
-npm run dev
-
-Le dashboard tourne sur http://localhost:5173
-
-3. Mobile
-cd mobile
-npm install
-npx expo start
-
-🔑 Comptes de démonstration
-Après avoir lancé npm run seed, ces comptes sont disponibles :
-Rôle,Email,Mot de passe
-Admin,admin@pfe.com,password123
-Agent,agent@pfe.com,password123
-Usager,user@pfe.com,password123
-
-🔐 Variables d'environnement
-Créer un fichier .env dans le dossier backend/ :
-PORT=3000
-MONGODB_URI=mongodb+srv://votre_user:votre_password@cluster.mongodb.net/pfe_queue_db
-JWT_SECRET=votre_secret_jwt_tres_long_et_securise
-
-📝 Commandes utiles
-# Backend
-npm run start:dev      # Lancer en développement
-npm run seed           # Générer les données de démo
-npm run build          # Build de production
-
-# Frontend
-npm run dev            # Lancer le serveur de développement
-
-# Mobile
-npx expo start         # Lancer Expo
-
-
-👤 Auteur
-Projet réalisé dans le cadre du PFE - Rihem Labbaoui
 ```
+
+L’API est disponible sur `http://localhost:3000` et Swagger sur `http://localhost:3000/api/docs`.
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+```bash
+cd mobile
+cp .env.example .env
+# Remplacer l’IP par l’adresse LAN du poste, accessible depuis l’iPhone.
+npm ci
+npx expo start --lan
+```
+
+L’application mobile reste volontairement sur Expo `~51.0.14` et React Native `0.74.2` pour la compatibilité iPhone demandée. Ne pas lancer de mise à niveau Expo automatique.
+
+## Comptes de démonstration
+
+Après `npm run seed` :
+
+| Rôle | Email | Mot de passe |
+|---|---|---|
+| Admin | `admin@pfe.com` | `password123` |
+| Agent | `agent@pfe.com` | `password123` |
+| Usager | `user@pfe.com` | `password123` |
+
+## Vérification
+
+```bash
+cd backend && npm run build && npm test -- --runInBand
+cd frontend && npm run build
+cd mobile && npx tsc --noEmit && npx expo export --platform web
+```
+
+## Règles métier importantes
+
+- La capacité est contrôlée par service, date et créneau.
+- Un QR ne fonctionne que le jour du rendez-vous et pour son propriétaire.
+- Une réservation ne produit qu’une entrée de file.
+- Un guichet ne peut appeler que la file du service auquel il est affecté.
+- L’absence ne peut être déclarée qu’après le délai configuré.
+- Les numéros de ticket sont générés par journée.
+
+Voir [l’architecture](docs/architecture.md) et la [conformité au brief](docs/conformite-brief.md).

@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Service, ServiceDocument } from './schemas/service.schema';
@@ -11,9 +15,11 @@ export class ServicesService {
   ) {}
 
   async create(createServiceDto: CreateServiceDto) {
-    const existing = await this.serviceModel.findOne({ name: createServiceDto.name });
+    const existing = await this.serviceModel.findOne({
+      name: createServiceDto.name,
+    });
     if (existing) throw new ConflictException('Service name already exists');
-    
+
     const newService = new this.serviceModel(createServiceDto);
     return newService.save();
   }
@@ -29,7 +35,11 @@ export class ServicesService {
   }
 
   async update(id: string, updateServiceDto: UpdateServiceDto) {
-    const updated = await this.serviceModel.findByIdAndUpdate(id, updateServiceDto, { new: true });
+    const updated = await this.serviceModel.findByIdAndUpdate(
+      id,
+      updateServiceDto,
+      { new: true },
+    );
     if (!updated) throw new NotFoundException('Service not found');
     return updated;
   }

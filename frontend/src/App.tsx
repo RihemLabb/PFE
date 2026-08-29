@@ -8,6 +8,8 @@ import Queue from './pages/Queue';
 import QueueDisplay from './pages/QueueDisplay'; // 👈 THIS IMPORT WAS MISSING
 import Layout from './components/Layout';
 import ProtectedRoute from './routes/ProtectedRoute';
+import AdminResource from './pages/AdminResource';
+import CheckIn from './pages/CheckIn';
 
 function App() {
   return (
@@ -40,6 +42,12 @@ function App() {
             <Route path="services" element={<Services />} />
             <Route path="appointments" element={<Appointments />} />
             <Route path="queue" element={<Queue />} />
+            <Route path="checkin" element={<CheckIn />} />
+            <Route path="schedules" element={<AdminResource title="Horaires" endpoint="/schedules" description="Plages d’ouverture et capacité." fields={['serviceId','dayOfWeek','startTime','endTime']} />} />
+            <Route path="counters" element={<AdminResource title="Guichets" endpoint="/counters" description="Guichets affectés aux services." fields={['name','number','serviceId']} />} />
+            <Route path="agents" element={<AdminResource title="Agents" endpoint="/users" description="Comptes agents et superviseurs." />} />
+            <Route path="statistics" element={<AdminResource title="Statistiques" endpoint="/appointments/dashboard/stats" description="Indicateurs calculés à partir des rendez-vous." />} />
+            <Route path="settings" element={<AdminResource title="Paramètres" endpoint="/settings" description="Nom, délais d’absence et rappels." />} />
           </Route>
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>

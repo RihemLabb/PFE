@@ -11,16 +11,16 @@ export class Service {
   @Prop({ trim: true })
   description: string;
 
-  @Prop({ required: true, min: 1 }) 
+  @Prop({ required: true, min: 1 })
   avgDuration: number;
-  
-  @Prop({ required: true, min: 5 }) 
+
+  @Prop({ required: true, min: 5 })
   slotDuration: number;
 
-  @Prop({ required: true, min: 1, default: 1 }) 
+  @Prop({ required: true, min: 1, default: 1 })
   maxCapacityPerSlot: number;
 
-  @Prop({ type: [String], default: [] }) 
+  @Prop({ type: [String], default: [] })
   requiredDocs: string[];
 
   @Prop({ default: true })

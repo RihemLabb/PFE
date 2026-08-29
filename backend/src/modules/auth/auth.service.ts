@@ -1,4 +1,8 @@
-import { Injectable, ConflictException, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { JwtService } from '@nestjs/jwt';
@@ -22,7 +26,9 @@ export class AuthService {
       registerDto.role = UserRole.USER;
     }
 
-    const existingUser = await this.userModel.findOne({ email: registerDto.email });
+    const existingUser = await this.userModel.findOne({
+      email: registerDto.email.toLowerCase(),
+    });
     if (existingUser) {
       throw new ConflictException('Email already registered');
     }
@@ -31,12 +37,18 @@ export class AuthService {
 
     const newUser = new this.userModel({
       ...registerDto,
+      email: registerDto.email.toLowerCase(),
+      role: UserRole.USER,
       password: hashedPassword,
     });
 
     const savedUser = await newUser.save();
 
-    const payload = { sub: savedUser._id, email: savedUser.email, role: savedUser.role };
+    const payload = {
+      sub: savedUser._id,
+      email: savedUser.email,
+      role: savedUser.role,
+    };
     const token = this.jwtService.sign(payload);
 
     return {
@@ -52,12 +64,17 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDto) {
-    const user = await this.userModel.findOne({ email: loginDto.email }).select('+password');
+    const user = await this.userModel
+      .findOne({ email: loginDto.email.toLowerCase(), isActive: true })
+      .select('+password');
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const isPasswordValid = await bcrypt.compare(loginDto.password, user.password);
+    const isPasswordValid = await bcrypt.compare(
+      loginDto.password,
+      user.password,
+    );
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
     }
