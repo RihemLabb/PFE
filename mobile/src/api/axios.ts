@@ -2,7 +2,7 @@ import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 
 const api = axios.create({
-  baseURL: 'YOUR_LOCALTUNNEL_URL_HERE',
+  baseURL: process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000',
   timeout: 15000,
 });
 

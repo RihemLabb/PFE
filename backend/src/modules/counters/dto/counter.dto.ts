@@ -1,4 +1,11 @@
-import { IsString, IsNotEmpty, IsNumber, IsEnum, IsOptional, IsMongoId } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsNumber,
+  IsEnum,
+  IsOptional,
+  IsMongoId,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { CounterStatus } from '../../../common/enums/counter-status.enum';
 
@@ -12,7 +19,10 @@ export class CreateCounterDto {
   @IsNumber()
   number: number;
 
-  @ApiProperty({ description: 'ID of the service this counter handles', example: '6a283e2e3ff75dc596d73aa9' })
+  @ApiProperty({
+    description: 'ID of the service this counter handles',
+    example: '6a283e2e3ff75dc596d73aa9',
+  })
   @IsMongoId()
   serviceId: string;
 }

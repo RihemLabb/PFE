@@ -29,6 +29,9 @@ export default function RootLayout() {
         <Stack.Screen name="ticket" options={{ title: 'Your Ticket', headerShown: false }} />
         <Stack.Screen name="history" options={{ title: 'History' }} />
         <Stack.Screen name="login" options={{ title: 'Login', headerShown: false }} />
+        <Stack.Screen name="register" options={{ title: 'Créer un compte' }} />
+        <Stack.Screen name="queue" options={{ title: "Ma file d'attente" }} />
+        <Stack.Screen name="profile" options={{ title: 'Profil et aide' }} />
       </Stack>
     </>
   );

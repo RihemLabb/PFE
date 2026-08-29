@@ -1,6 +1,6 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { LayoutDashboard, Settings, Calendar, Users, LogOut, Moon, Sun } from 'lucide-react';
+import { LayoutDashboard, Settings, Calendar, Users, LogOut, Moon, Sun, Clock, QrCode, Monitor, UserCog, BarChart3 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useTheme } from '../context/ThemeContext';
 import CommandPalette from './CommandPalette';
@@ -15,6 +15,12 @@ export default function Layout() {
     { path: '/dashboard/services', label: 'Services', icon: Settings },
     { path: '/dashboard/appointments', label: 'Appointments', icon: Calendar },
     { path: '/dashboard/queue', label: 'Queue', icon: Users },
+    { path: '/dashboard/checkin', label: 'Pointage', icon: QrCode },
+    { path: '/dashboard/schedules', label: 'Horaires', icon: Clock },
+    { path: '/dashboard/counters', label: 'Guichets', icon: Monitor },
+    { path: '/dashboard/agents', label: 'Agents', icon: UserCog },
+    { path: '/dashboard/statistics', label: 'Statistiques', icon: BarChart3 },
+    { path: '/dashboard/settings', label: 'Paramètres', icon: Settings },
   ];
 
   return (
@@ -41,7 +47,7 @@ export default function Layout() {
           </motion.div>
         </div>
         
-        <nav className="p-4 space-y-2">
+        <nav className="p-4 space-y-1 overflow-y-auto h-[calc(100vh-260px)]">
           {navItems.map((item, index) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;

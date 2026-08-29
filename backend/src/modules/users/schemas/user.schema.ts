@@ -4,7 +4,7 @@ import { UserRole } from '../../../common/enums/user-role.enum';
 
 export type UserDocument = User & Document;
 
-@Schema({ timestamps: true }) 
+@Schema({ timestamps: true })
 export class User {
   @Prop({ required: true })
   firstName: string;
@@ -15,7 +15,7 @@ export class User {
   @Prop({ required: true, unique: true, lowercase: true, trim: true })
   email: string;
 
-  @Prop({ required: true, select: false }) 
+  @Prop({ required: true, select: false })
   password: string;
 
   @Prop({ type: String, enum: UserRole, default: UserRole.USER })

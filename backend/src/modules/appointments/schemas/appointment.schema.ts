@@ -14,22 +14,30 @@ export class Appointment {
   @Prop({ type: Types.ObjectId, ref: Service.name, required: true })
   serviceId: Types.ObjectId;
 
-  @Prop({ required: true }) 
+  @Prop({ required: true })
   date: Date;
 
-  @Prop({ required: true }) 
+  @Prop({ required: true })
   timeSlot: string;
 
-  @Prop({ type: String, enum: AppointmentStatus, default: AppointmentStatus.CONFIRMED })
+  @Prop({
+    type: String,
+    enum: AppointmentStatus,
+    default: AppointmentStatus.CONFIRMED,
+  })
   status: AppointmentStatus;
 
-  @Prop({ required: true, unique: true }) 
+  @Prop({ required: true, unique: true })
   qrToken: string;
 
-  @Prop({ required: true }) 
+  @Prop({ required: true })
   ticketNumber: string;
+  @Prop({ trim: true }) notes?: string;
+  @Prop({ trim: true }) cancellationReason?: string;
+  @Prop() checkedInDate?: Date;
 }
 
 export const AppointmentSchema = SchemaFactory.createForClass(Appointment);
 
 AppointmentSchema.index({ serviceId: 1, date: 1, timeSlot: 1 });
+AppointmentSchema.index({ userId: 1, date: -1 });

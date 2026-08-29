@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, Users, CheckCircle, Clock, XCircle, Activity, ArrowUpRight } from 'lucide-react';
+import { Users, CheckCircle, Clock, Activity, ArrowUpRight } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import api from '../api/axios';
 

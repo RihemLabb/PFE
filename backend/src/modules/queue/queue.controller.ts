@@ -1,67 +1,71 @@
-import { Controller, Get, Post, Body, Param, Query, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { QueueService } from './queue.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../../common/guards/roles.guard';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CheckInDto } from './dto/check-in.dto';
+import { QueueService } from './queue.service';
 
 @ApiTags('Queue')
 @Controller('queue')
 export class QueueController {
-  constructor(private readonly queueService: QueueService) {}
-
+  constructor(private service: QueueService) {}
+  @Get('display') display(@Query('serviceId') id?: string) {
+    return this.service.publicDisplay(id);
+  }
   @Get('today')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.AGENT)
+  @Roles(UserRole.ADMIN, UserRole.AGENT, UserRole.SUPERVISOR)
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Get today queue for a service' })
-  getTodayQueue(@Query('serviceId') serviceId: string) {
-    return this.queueService.getTodayQueue(serviceId);
+  today(@Query('serviceId') id?: string) {
+    return this.service.today(id);
   }
-
+  @Get('me') @UseGuards(JwtAuthGuard) @ApiBearerAuth('access-token') me(
+    @CurrentUser() user: any,
+  ) {
+    return this.service.myStatus(user.userId);
+  }
   @Post('checkin')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Check in user via QR token' })
-  checkIn(@Body() checkInDto: CheckInDto) {
-    return this.queueService.checkIn(checkInDto.qrToken);
+  checkin(@Body() dto: CheckInDto, @CurrentUser() user: any) {
+    return this.service.checkIn(dto.qrToken, user);
   }
-
   @Post('next')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.AGENT, UserRole.ADMIN)
-  @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Call next ticket (Agent)' })
-  callNext(@Body() body: { serviceId: string, counterId: string }) {
-    return this.queueService.callNext(body.serviceId, body.counterId);
+  @Roles(UserRole.ADMIN, UserRole.AGENT)
+  next(
+    @Body() body: { serviceId: string; counterId: string },
+    @CurrentUser() user: any,
+  ) {
+    return this.service.callNext(body.serviceId, body.counterId, user.userId);
   }
-
   @Post(':id/start')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.AGENT, UserRole.ADMIN)
-  @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Start service for ticket (Agent)' })
-  startService(@Param('id') id: string) {
-    return this.queueService.startService(id);
+  @Roles(UserRole.ADMIN, UserRole.AGENT)
+  start(@Param('id') id: string) {
+    return this.service.start(id);
   }
-
   @Post(':id/finish')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.AGENT, UserRole.ADMIN)
-  @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Finish service for ticket (Agent)' })
-  finishService(@Param('id') id: string) {
-    return this.queueService.finishService(id);
+  @Roles(UserRole.ADMIN, UserRole.AGENT)
+  finish(@Param('id') id: string) {
+    return this.service.finish(id);
   }
-
   @Post(':id/absent')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.AGENT, UserRole.ADMIN)
-  @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Mark ticket as absent (Agent)' })
-  markAbsent(@Param('id') id: string) {
-    return this.queueService.markAbsent(id);
+  @Roles(UserRole.ADMIN, UserRole.AGENT)
+  absent(@Param('id') id: string) {
+    return this.service.absent(id);
   }
 }

@@ -4,9 +4,18 @@ import { getModelToken } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import { User, UserDocument } from './modules/users/schemas/user.schema';
-import { Service, ServiceDocument } from './modules/services/schemas/service.schema';
-import { Counter, CounterDocument } from './modules/counters/schemas/counter.schema';
-import { Appointment, AppointmentDocument } from './modules/appointments/schemas/appointment.schema';
+import {
+  Service,
+  ServiceDocument,
+} from './modules/services/schemas/service.schema';
+import {
+  Counter,
+  CounterDocument,
+} from './modules/counters/schemas/counter.schema';
+import {
+  Appointment,
+  AppointmentDocument,
+} from './modules/appointments/schemas/appointment.schema';
 import { UserRole } from './common/enums/user-role.enum';
 import { AppointmentStatus } from './common/enums/appointment-status.enum';
 import { v4 as uuidv4 } from 'uuid';
@@ -15,9 +24,15 @@ async function seed() {
   const app = await NestFactory.createApplicationContext(AppModule);
 
   const userModel = app.get<Model<UserDocument>>(getModelToken(User.name));
-  const serviceModel = app.get<Model<ServiceDocument>>(getModelToken(Service.name));
-  const counterModel = app.get<Model<CounterDocument>>(getModelToken(Counter.name));
-  const appointmentModel = app.get<Model<AppointmentDocument>>(getModelToken(Appointment.name));
+  const serviceModel = app.get<Model<ServiceDocument>>(
+    getModelToken(Service.name),
+  );
+  const counterModel = app.get<Model<CounterDocument>>(
+    getModelToken(Counter.name),
+  );
+  const appointmentModel = app.get<Model<AppointmentDocument>>(
+    getModelToken(Appointment.name),
+  );
 
   console.log('🌱 Starting database seeding...');
 

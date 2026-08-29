@@ -8,10 +8,10 @@ export type CounterDocument = Counter & Document;
 @Schema({ timestamps: true })
 export class Counter {
   @Prop({ required: true, trim: true })
-  name: string; 
+  name: string;
 
   @Prop({ required: true, unique: true })
-  number: number; 
+  number: number;
 
   @Prop({ type: Types.ObjectId, ref: Service.name, required: true })
   serviceId: Types.ObjectId;

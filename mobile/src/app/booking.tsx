@@ -1,58 +1,7 @@
-import { useState } from 'react';
-import { View, Text, Button, Alert, StyleSheet, ActivityIndicator } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Text, Alert, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView, TextInput, View } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import api from '../api/axios';
-
-export default function Booking() {
-  const { serviceId, serviceName } = useLocalSearchParams();
-  const [date] = useState(new Date().toISOString().split('T')[0]);
-  const [loading, setLoading] = useState(false);
-
-  const handleBook = async (timeSlot: string) => {
-    setLoading(true);
-    try {
-      const { data } = await api.post('/appointments', {
-        serviceId,
-        date,
-        timeSlot,
-      });
-      router.push({ 
-        pathname: '/ticket', 
-        params: { 
-          ticketNumber: data.ticketNumber, 
-          qrToken: data.qrToken, 
-          timeSlot: data.timeSlot, 
-          serviceName: serviceName as string 
-        } 
-      });
-    } catch (err: any) {
-      Alert.alert('Error', err.response?.data?.message || 'Booking failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const slots = ['09:00', '10:00', '11:00'];
-
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Book {serviceName}</Text>
-      <Text style={styles.subtitle}>Date: {date}</Text>
-      {loading && <ActivityIndicator size="large" style={{ margin: 20 }} />}
-      <View style={styles.slots}>
-        {slots.map((slot) => (
-          <View key={slot} style={{ marginBottom: 15 }}>
-            <Button title={slot} onPress={() => handleBook(slot)} color="#2563eb" />
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: '#f3f4f6' },
-  title: { fontSize: 22, fontWeight: 'bold', marginBottom: 10 },
-  subtitle: { fontSize: 16, color: '#6b7280', marginBottom: 20 },
-  slots: { gap: 15 },
-});
+type Slot={time:string;remaining:number;available:boolean};
+export default function Booking(){const {serviceId,serviceName}=useLocalSearchParams();const [date,setDate]=useState(new Date().toISOString().slice(0,10));const [slots,setSlots]=useState<Slot[]>([]);const [loading,setLoading]=useState(false);useEffect(()=>{setLoading(true);api.get('/availability',{params:{serviceId,date}}).then(r=>setSlots(r.data.slots||[])).catch((e)=>Alert.alert('Disponibilités',e.response?.data?.message||'Connexion impossible')).finally(()=>setLoading(false))},[serviceId,date]);const book=async(timeSlot:string)=>{setLoading(true);try{const {data}=await api.post('/appointments',{serviceId,date,timeSlot});router.replace({pathname:'/ticket',params:{ticketNumber:data.ticketNumber,qrToken:data.qrToken,timeSlot:data.timeSlot,serviceName:serviceName as string}})}catch(e:any){Alert.alert('Réservation',e.response?.data?.message||'Échec')}finally{setLoading(false)}};return <ScrollView style={s.page} contentContainerStyle={s.content}><Text style={s.title}>{serviceName}</Text><Text style={s.label}>Date (AAAA-MM-JJ)</Text><TextInput value={date} onChangeText={setDate} style={s.input}/>{loading&&<ActivityIndicator color="#4F46E5"/>}<View style={s.grid}>{slots.map(x=><TouchableOpacity disabled={!x.available||loading} key={x.time} onPress={()=>book(x.time)} style={[s.slot,!x.available&&s.disabled]}><Text style={s.time}>{x.time}</Text><Text style={s.remaining}>{x.remaining} place(s)</Text></TouchableOpacity>)}</View>{!loading&&slots.length===0&&<Text style={s.empty}>Aucun créneau pour cette date.</Text>}</ScrollView>}
+const s=StyleSheet.create({page:{flex:1,backgroundColor:'#F8FAFC'},content:{padding:24},title:{fontSize:26,fontWeight:'800',color:'#0F172A',marginBottom:24},label:{color:'#64748B',marginBottom:6},input:{backgroundColor:'#FFF',borderWidth:1,borderColor:'#E2E8F0',borderRadius:14,padding:14,marginBottom:20},grid:{flexDirection:'row',flexWrap:'wrap',gap:12},slot:{width:'47%',backgroundColor:'#FFF',borderColor:'#6366F1',borderWidth:1,padding:18,borderRadius:16},disabled:{opacity:.35,borderColor:'#CBD5E1'},time:{fontSize:18,fontWeight:'800'},remaining:{color:'#64748B',marginTop:4},empty:{textAlign:'center',color:'#64748B',marginTop:40}});

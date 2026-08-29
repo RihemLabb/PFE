@@ -17,6 +17,7 @@ export default function Home() {
   const { user, logout } = useAuthStore();
 
   useEffect(() => {
+    if (!user) { router.replace('/login'); return; }
     const fetchServices = async () => {
       try {
         const { data } = await api.get('/services');
@@ -28,7 +29,7 @@ export default function Home() {
       }
     };
     fetchServices();
-  }, []);
+  }, [user]);
 
   const handleLogout = () => {
     logout();
@@ -54,6 +55,8 @@ export default function Home() {
         <TouchableOpacity style={styles.inactivePill} onPress={() => router.push('/history')}>
           <Text style={styles.inactivePillText}>My Appointments</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={styles.inactivePill} onPress={() => router.push('/queue')}><Text style={styles.inactivePillText}>Ma file</Text></TouchableOpacity>
+        <TouchableOpacity style={styles.inactivePill} onPress={() => router.push('/profile')}><Text style={styles.inactivePillText}>Profil</Text></TouchableOpacity>
       </View>
 
       {loading ? (

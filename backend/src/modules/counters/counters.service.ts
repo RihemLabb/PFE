@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Counter, CounterDocument } from './schemas/counter.schema';
@@ -11,8 +15,13 @@ export class CountersService {
   ) {}
 
   async create(createCounterDto: CreateCounterDto) {
-    const existingNumber = await this.counterModel.findOne({ number: createCounterDto.number });
-    if (existingNumber) throw new ConflictException(`Counter number ${createCounterDto.number} already exists`);
+    const existingNumber = await this.counterModel.findOne({
+      number: createCounterDto.number,
+    });
+    if (existingNumber)
+      throw new ConflictException(
+        `Counter number ${createCounterDto.number} already exists`,
+      );
 
     const newCounter = new this.counterModel(createCounterDto);
     return newCounter.save();
@@ -29,7 +38,9 @@ export class CountersService {
   }
 
   async update(id: string, updateCounterDto: UpdateCounterDto) {
-    const updated = await this.counterModel.findByIdAndUpdate(id, updateCounterDto, { new: true }).populate('serviceId');
+    const updated = await this.counterModel
+      .findByIdAndUpdate(id, updateCounterDto, { new: true })
+      .populate('serviceId');
     if (!updated) throw new NotFoundException('Counter not found');
     return updated;
   }
