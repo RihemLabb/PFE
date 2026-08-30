@@ -1,16 +1,20 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
 import { MongooseModule } from '@nestjs/mongoose';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
+import { RateLimitGuard } from './common/guards/rate-limit.guard';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { ServicesModule } from './modules/services/services.module';
 import { CountersModule } from './modules/counters/counters.module';
+import { AgentAssignmentsModule } from './modules/agent-assignments/agent-assignments.module';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { QueueModule } from './modules/queue/queue.module';
-import { SchedulesModule } from './modules/schedules/schedules.module';
+import { FeedbackModule } from './modules/feedback/feedback.module';
 import { HolidaysModule } from './modules/holidays/holidays.module';
-import { SettingsModule } from './modules/settings/settings.module';
-import { AvailabilityModule } from './modules/availability/availability.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -20,7 +24,7 @@ import { AvailabilityModule } from './modules/availability/availability.module';
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => ({
+      useFactory: (configService: ConfigService) => ({
         uri: configService.getOrThrow<string>('MONGODB_URI'),
       }),
     }),
@@ -28,12 +32,20 @@ import { AvailabilityModule } from './modules/availability/availability.module';
     UsersModule,
     ServicesModule,
     CountersModule,
+    AgentAssignmentsModule,
     AppointmentsModule,
     QueueModule,
-    SchedulesModule,
+    FeedbackModule,
     HolidaysModule,
-    SettingsModule,
-    AvailabilityModule,
+    NotificationsModule,
+  ],
+  controllers: [AppController],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: RateLimitGuard,
+    },
   ],
 })
 export class AppModule {}

@@ -1,26 +1,52 @@
 import {
+  BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
-  ConflictException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Service, ServiceDocument } from './schemas/service.schema';
 import { CreateServiceDto, UpdateServiceDto } from './dto/service.dto';
+import { Counter, CounterDocument } from '../counters/schemas/counter.schema';
+import {
+  Appointment,
+  AppointmentDocument,
+} from '../appointments/schemas/appointment.schema';
+import { Holiday, HolidayDocument } from '../holidays/schemas/holiday.schema';
 
 @Injectable()
 export class ServicesService {
   constructor(
     @InjectModel(Service.name) private serviceModel: Model<ServiceDocument>,
+    @InjectModel(Counter.name) private counterModel: Model<CounterDocument>,
+    @InjectModel(Appointment.name)
+    private appointmentModel: Model<AppointmentDocument>,
+    @InjectModel(Holiday.name) private holidayModel: Model<HolidayDocument>,
   ) {}
 
+  private validateSchedule(openingTime: string, closingTime: string) {
+    if (openingTime >= closingTime) {
+      throw new BadRequestException(
+        'Closing time must be later than opening time',
+      );
+    }
+  }
+
   async create(createServiceDto: CreateServiceDto) {
-    const existing = await this.serviceModel.findOne({
-      name: createServiceDto.name,
-    });
+    const name = createServiceDto.name.trim();
+    const existing = await this.serviceModel.findOne({ name });
     if (existing) throw new ConflictException('Service name already exists');
 
-    const newService = new this.serviceModel(createServiceDto);
+    this.validateSchedule(
+      createServiceDto.openingTime || '09:00',
+      createServiceDto.closingTime || '17:00',
+    );
+
+    const newService = new this.serviceModel({
+      ...createServiceDto,
+      name,
+    });
     return newService.save();
   }
 
@@ -35,18 +61,46 @@ export class ServicesService {
   }
 
   async update(id: string, updateServiceDto: UpdateServiceDto) {
-    const updated = await this.serviceModel.findByIdAndUpdate(
-      id,
-      updateServiceDto,
-      { new: true },
-    );
-    if (!updated) throw new NotFoundException('Service not found');
-    return updated;
+    const service = await this.serviceModel.findById(id);
+    if (!service) throw new NotFoundException('Service not found');
+
+    if (updateServiceDto.name) {
+      const name = updateServiceDto.name.trim();
+      const duplicate = await this.serviceModel.findOne({
+        _id: { $ne: id },
+        name,
+      });
+      if (duplicate) throw new ConflictException('Service name already exists');
+      updateServiceDto.name = name;
+    }
+
+    const openingTime =
+      updateServiceDto.openingTime ?? service.openingTime ?? '09:00';
+    const closingTime =
+      updateServiceDto.closingTime ?? service.closingTime ?? '17:00';
+    this.validateSchedule(openingTime, closingTime);
+
+    Object.assign(service, updateServiceDto);
+    return service.save();
   }
 
   async remove(id: string) {
-    const deleted = await this.serviceModel.findByIdAndDelete(id);
-    if (!deleted) throw new NotFoundException('Service not found');
+    const service = await this.serviceModel.findById(id);
+    if (!service) throw new NotFoundException('Service not found');
+
+    const [counterCount, appointmentCount, exceptionCount] = await Promise.all([
+      this.counterModel.countDocuments({ serviceId: id }),
+      this.appointmentModel.countDocuments({ serviceId: id }),
+      this.holidayModel.countDocuments({ serviceId: id }),
+    ]);
+
+    if (counterCount || appointmentCount || exceptionCount) {
+      throw new ConflictException(
+        `Service is still referenced by ${counterCount} counter(s), ${appointmentCount} appointment(s), and ${exceptionCount} schedule exception(s). Disable it instead of deleting it.`,
+      );
+    }
+
+    await service.deleteOne();
     return { message: 'Service deleted successfully' };
   }
 }

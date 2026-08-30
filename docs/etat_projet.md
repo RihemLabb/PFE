@@ -1,60 +1,48 @@
-# État du projet - Fin de semaine 1
+# État final du projet
 
-## ✅ Fonctionnalités terminées
+La stabilisation décrite dans le rapport final est intégrée sur la branche `feature/report-alignment`. L'application mobile cible **Expo SDK 54**.
 
-### Backend
-
-- API NestJS complète (Auth, Services, Counters, Appointments, Queue)
-- Swagger opérationnel sur /api/docs
-- Seed script automatique (npm run seed)
-- Sécurité: JWT, RBAC (ADMIN, SUPERVISOR, AGENT, USER)
-- Register protégé (rôle USER forcé)
-- Workflow complet testé de bout en bout
-- Route dashboard/stats pour les statistiques
-- Route appointments pour lister tous les rendez-vous (Admin)
-
-### Frontend Web
-
-- Login avec JWT
-- Dashboard avec statistiques temps réel
-- Page Services (liste des services)
-- Page Appointments (tableau des rendez-vous)
-- Page Queue (Agent Dashboard avec check-in, appel ticket, start/finish)
-
-### Mobile
-
-- Login usager
-- Liste des services
-- Réservation de rendez-vous
-- Affichage du ticket avec QR Code
-
-## 🚧 Fonctionnalités en cours
-
-### Mobile
-
-- Écran "Mes rendez-vous" (historique)
-- Annulation de rendez-vous
-- Profil utilisateur
-- Scan QR via caméra (agent mobile)
+## Fonctionnalités livrées
 
 ### Backend
 
-- Tests unitaires
-- Tests e2e
-- Exports PDF/Excel
+- API NestJS, MongoDB/Mongoose et Swagger configurable.
+- Authentification JWT, rotation des refresh tokens, déconnexion et RBAC à quatre rôles.
+- Protection des comptes désactivés et limitation de requêtes sensibles.
+- Services, horaires, capacité, documents requis et délai d'absence.
+- Jours fermés et horaires exceptionnels globaux ou propres à un service.
+- Rendez-vous avec validation de disponibilité, anti-doublon et ticket quotidien.
+- Check-in QR sécurisé et file horodatée avec transitions atomiques.
+- Affectations agent-guichet et contrôle du périmètre opérationnel.
+- Indicateurs réels, rapports et feedback après traitement terminé.
 
-### Documentation
+### Portail web
 
-- Diagrammes UML (cas d'utilisation, séquence, classes)
-- Rapport PFE complet
+- Routage différencié pour administrateur, superviseur et agent.
+- Dashboard alimenté par l'API, gestion services/guichets/personnel/affectations/calendrier.
+- Consultation des rendez-vous et exports PDF/Excel.
+- Console de file, affichage public et rapports de satisfaction avec export CSV.
 
-## 🚫 Bloquages
+### Application mobile — Expo SDK 54
 
-Aucun blocage majeur. Tous les workflows fonctionnent correctement.
+- Inscription, connexion, refresh de session et protection des routes.
+- Services, documents requis, disponibilités et réservation.
+- Ticket QR, scanner caméra, historique et annulation.
+- Suivi live de la file avec position, personnes devant, guichet et ETA.
+- Profil utilisateur et évaluation d'un rendez-vous terminé.
+- Replanification avec revalidation des disponibilités et renouvellement du ticket QR.
+- Centre de notifications et rappels des rendez-vous à venir.
 
-## 📊 Statistiques
+## Validation
 
-- Nombre de routes API : 20+
-- Nombre de pages web : 5
-- Nombre d'écrans mobile : 4
-- Workflow complet : 11 étapes testées avec succès
+- Backend : compilation réussie et 6 suites totalisant 28 tests unitaires réussis.
+- Frontend : compilation de production réussie ; lint sans erreur bloquante.
+- Mobile : contrôle TypeScript et export Expo web de 12 routes réussis sous SDK 54.
+- CI : jobs backend, frontend et mobile définis dans `.github/workflows/ci.yml`.
+- Tests UI web : scénarios automatisés des routes protégées.
+- Production : images Docker multi-étapes, proxy Nginx et composition MongoDB/API/web.
+
+## Limites dépendantes de l'environnement
+
+- Un déploiement public nécessite un domaine, HTTPS et des secrets fournis par l'hébergeur.
+- Les notifications push natives nécessitent des identifiants APNs/FCM ; les rappels internes sont opérationnels sans ces services externes.

@@ -15,9 +15,14 @@
     "src/app/**/*.ts",
     "src/app/**/*.tsx",
     "src/api/**/*.ts",
+    "src/api/**/*.tsx",
     "src/store/**/*.ts",
+    "src/store/**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
   ],
-  "exclude": ["src/components", "src/hooks", "src/constants"]
+  "exclude": [
+    "src/components/**/*",
+    "src/hooks/**/*"
+  ]
 }

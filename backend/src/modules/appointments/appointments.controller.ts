@@ -1,65 +1,78 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Patch,
-  Post,
-  Put,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AppointmentsService } from './appointments.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { UserRole } from '../../common/enums/user-role.enum';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { UserRole } from '../../common/enums/user-role.enum';
 import {
-  CancelAppointmentDto,
   CreateAppointmentDto,
-  UpdateAppointmentDto,
-} from './dto/appointment.dto';
+  RescheduleAppointmentDto,
+} from './dto/create-appointment.dto';
+
+@ApiTags('Appointments')
 @Controller('appointments')
-@UseGuards(JwtAuthGuard, RolesGuard)
 export class AppointmentsController {
-  constructor(private service: AppointmentsService) {}
-  @Get() @Roles(UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.AGENT) all(
-    @Query() q: Record<string, string>,
+  constructor(private readonly appointmentsService: AppointmentsService) {}
+
+  @Get()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPERVISOR)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get all appointments (Admin/Supervisor)' })
+  findAll() {
+    return this.appointmentsService.findAll();
+  }
+
+  @Get('my-appointments')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get my appointments (Any logged-in user)' })
+  findMyAppointments(@CurrentUser() user: any) {
+    return this.appointmentsService.findMyAppointments(user.userId);
+  }
+
+  @Get('dashboard/stats')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPERVISOR)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get live dashboard statistics (Admin/Supervisor)' })
+  getStats() {
+    return this.appointmentsService.getDashboardStats();
+  }
+
+  @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.USER)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Create an appointment (User)' })
+  create(
+    @Body() createAppointmentDto: CreateAppointmentDto,
+    @CurrentUser() user: any,
   ) {
-    return this.service.findAll(q);
+    return this.appointmentsService.create(createAppointmentDto, user.userId);
   }
-  @Get('my-appointments') mine(@CurrentUser() u: any) {
-    return this.service.findMine(u.userId);
+
+  @Post(':id/cancel')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.USER, UserRole.ADMIN, UserRole.SUPERVISOR)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Cancel an appointment (Owner/Admin/Supervisor)' })
+  cancel(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.appointmentsService.cancel(id, user.userId, user.role);
   }
-  @Get('dashboard/stats') @Roles(UserRole.ADMIN, UserRole.SUPERVISOR) stats() {
-    return this.service.stats();
-  }
-  @Get(':id') one(@Param('id') id: string, @CurrentUser() u: any) {
-    return this.service.one(id, u);
-  }
-  @Post() create(@Body() d: CreateAppointmentDto, @CurrentUser() u: any) {
-    return this.service.create(d, u.userId);
-  }
-  @Patch(':id') update(
+
+  @Post(':id/reschedule')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.USER, UserRole.ADMIN, UserRole.SUPERVISOR)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Reschedule a confirmed appointment' })
+  reschedule(
     @Param('id') id: string,
-    @Body() d: UpdateAppointmentDto,
-    @CurrentUser() u: any,
+    @Body() dto: RescheduleAppointmentDto,
+    @CurrentUser() user: any,
   ) {
-    return this.service.update(id, d, u);
-  }
-  @Put(':id/cancel') cancel(
-    @Param('id') id: string,
-    @Body() d: CancelAppointmentDto,
-    @CurrentUser() u: any,
-  ) {
-    return this.service.cancel(id, d, u);
-  }
-  @Post(':id/cancel') cancelLegacy(
-    @Param('id') id: string,
-    @Body() d: CancelAppointmentDto,
-    @CurrentUser() u: any,
-  ) {
-    return this.service.cancel(id, d, u);
+    return this.appointmentsService.reschedule(id, dto, user.userId, user.role);
   }
 }

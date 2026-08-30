@@ -1,13 +1,16 @@
+import { ApiProperty } from '@nestjs/swagger';
 import {
-  IsString,
+  IsArray,
+  IsBoolean,
+  IsInt,
   IsNotEmpty,
   IsNumber,
-  IsArray,
   IsOptional,
-  IsBoolean,
+  IsString,
+  Matches,
+  Max,
   Min,
 } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateServiceDto {
   @ApiProperty({ example: 'Passport Renewal' })
@@ -29,6 +32,7 @@ export class CreateServiceDto {
   @IsArray()
   @IsOptional()
   requiredDocs?: string[];
+
   @ApiProperty({ example: 15, description: 'Slot duration in minutes' })
   @IsNumber()
   @Min(5)
@@ -38,6 +42,41 @@ export class CreateServiceDto {
   @IsNumber()
   @Min(1)
   maxCapacityPerSlot: number;
+
+  @ApiProperty({ example: '09:00', required: false, default: '09:00' })
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/)
+  @IsOptional()
+  openingTime?: string;
+
+  @ApiProperty({ example: '17:00', required: false, default: '17:00' })
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/)
+  @IsOptional()
+  closingTime?: string;
+
+  @ApiProperty({
+    example: [1, 2, 3, 4, 5],
+    description: 'Operating weekdays where 0=Sunday and 6=Saturday',
+    required: false,
+  })
+  @IsArray()
+  @IsInt({ each: true })
+  @Min(0, { each: true })
+  @Max(6, { each: true })
+  @IsOptional()
+  workingDays?: number[];
+
+  @ApiProperty({
+    example: 15,
+    description:
+      'Minutes after a ticket is called before it can be marked absent',
+    required: false,
+    default: 15,
+  })
+  @IsInt()
+  @Min(0)
+  @Max(240)
+  @IsOptional()
+  absenceDelayMinutes?: number;
 }
 
 export class UpdateServiceDto {
@@ -66,13 +105,46 @@ export class UpdateServiceDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
-  @ApiProperty({ example: 15, description: 'Slot duration in minutes' })
+
+  @ApiProperty({ example: 15, required: false })
   @IsNumber()
   @Min(5)
-  slotDuration: number;
+  @IsOptional()
+  slotDuration?: number;
 
-  @ApiProperty({ example: 3, description: 'Max capacity per slot' })
+  @ApiProperty({ example: 3, required: false })
   @IsNumber()
   @Min(1)
-  maxCapacityPerSlot: number;
+  @IsOptional()
+  maxCapacityPerSlot?: number;
+
+  @ApiProperty({ example: '09:00', required: false })
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/)
+  @IsOptional()
+  openingTime?: string;
+
+  @ApiProperty({ example: '17:00', required: false })
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/)
+  @IsOptional()
+  closingTime?: string;
+
+  @ApiProperty({ example: [1, 2, 3, 4, 5], required: false })
+  @IsArray()
+  @IsInt({ each: true })
+  @Min(0, { each: true })
+  @Max(6, { each: true })
+  @IsOptional()
+  workingDays?: number[];
+
+  @ApiProperty({
+    example: 15,
+    description:
+      'Minutes after a ticket is called before it can be marked absent',
+    required: false,
+  })
+  @IsInt()
+  @Min(0)
+  @Max(240)
+  @IsOptional()
+  absenceDelayMinutes?: number;
 }

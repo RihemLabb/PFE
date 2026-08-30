@@ -14,12 +14,26 @@ export interface QueueEntry {
   _id: string;
   position: number;
   status: string;
-  ticketNumber: string;
-  appointmentId: { 
-    timeSlot: string; 
+  serviceId: string;
+  counterId?: {
+    _id: string;
+    name: string;
+    number: number;
+  } | null;
+  appointmentId: {
+    timeSlot: string;
     ticketNumber: string;
-    userId: { firstName: string } 
+    userId: { firstName: string; lastName?: string };
   };
+}
+
+export interface PublicQueueEntry {
+  _id: string;
+  position: number;
+  status: 'WAITING' | 'CALLED' | 'IN_PROGRESS';
+  ticketNumber: string;
+  counterNumber: number | null;
+  counterName: string | null;
 }
 
 export const getAppointments = async (): Promise<Appointment[]> => {
@@ -32,7 +46,14 @@ export const getTodayQueue = async (serviceId: string): Promise<QueueEntry[]> =>
   return data;
 };
 
-export const checkInUser = async (qrToken: string) => {
+export const getPublicQueueDisplay = async (
+  serviceId: string,
+): Promise<PublicQueueEntry[]> => {
+  const { data } = await api.get(`/queue/display?serviceId=${serviceId}`);
+  return data;
+};
+
+export const checkInUser = async (qrToken: string): Promise<QueueEntry> => {
   const { data } = await api.post('/queue/checkin', { qrToken });
   return data;
 };

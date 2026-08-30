@@ -3,8 +3,10 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { Appointment, AppointmentSchema } from './schemas/appointment.schema';
 import { AppointmentsService } from './appointments.service';
 import { AppointmentsController } from './appointments.controller';
+import { AvailabilityController } from './availability.controller';
 import { ServicesModule } from '../services/services.module';
-import { AvailabilityModule } from '../availability/availability.module';
+import { QueueDataModule } from '../queue/queue-data.module';
+import { HolidaysModule } from '../holidays/holidays.module';
 
 @Module({
   imports: [
@@ -12,9 +14,10 @@ import { AvailabilityModule } from '../availability/availability.module';
       { name: Appointment.name, schema: AppointmentSchema },
     ]),
     ServicesModule,
-    AvailabilityModule,
+    QueueDataModule,
+    HolidaysModule,
   ],
-  controllers: [AppointmentsController],
+  controllers: [AppointmentsController, AvailabilityController],
   providers: [AppointmentsService],
   exports: [MongooseModule],
 })

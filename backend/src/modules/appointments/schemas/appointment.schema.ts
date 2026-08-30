@@ -32,12 +32,8 @@ export class Appointment {
 
   @Prop({ required: true })
   ticketNumber: string;
-  @Prop({ trim: true }) notes?: string;
-  @Prop({ trim: true }) cancellationReason?: string;
-  @Prop() checkedInDate?: Date;
 }
 
 export const AppointmentSchema = SchemaFactory.createForClass(Appointment);
 
 AppointmentSchema.index({ serviceId: 1, date: 1, timeSlot: 1 });
-AppointmentSchema.index({ userId: 1, date: -1 });

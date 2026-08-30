@@ -6,212 +6,511 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { AppointmentStatus } from '../../common/enums/appointment-status.enum';
-import { QueueStatus } from '../../common/enums/queue-status.enum';
-import { UserRole } from '../../common/enums/user-role.enum';
-import { dayBounds } from '../../common/utils/date';
+import { QueueEntry, QueueEntryDocument } from './schemas/queue-entry.schema';
 import {
   Appointment,
   AppointmentDocument,
 } from '../appointments/schemas/appointment.schema';
 import { Counter, CounterDocument } from '../counters/schemas/counter.schema';
-import { SettingsService } from '../settings/settings.module';
-import { QueueEntry, QueueEntryDocument } from './schemas/queue-entry.schema';
+import { Service, ServiceDocument } from '../services/schemas/service.schema';
+import { AgentAssignmentsService } from '../agent-assignments/agent-assignments.service';
+import { QueueStatus } from '../../common/enums/queue-status.enum';
+import { AppointmentStatus } from '../../common/enums/appointment-status.enum';
+import { CounterStatus } from '../../common/enums/counter-status.enum';
+import { UserRole } from '../../common/enums/user-role.enum';
+import {
+  getBusinessDayRange,
+  getDateKeyInTimeZone,
+} from '../../common/utils/business-date';
+
+interface QueueActor {
+  userId: string;
+  role: UserRole;
+}
 
 @Injectable()
 export class QueueService {
   constructor(
-    @InjectModel(QueueEntry.name) private model: Model<QueueEntryDocument>,
+    @InjectModel(QueueEntry.name)
+    private queueEntryModel: Model<QueueEntryDocument>,
     @InjectModel(Appointment.name)
-    private appointments: Model<AppointmentDocument>,
-    @InjectModel(Counter.name) private counters: Model<CounterDocument>,
-    private settings: SettingsService,
+    private appointmentModel: Model<AppointmentDocument>,
+    @InjectModel(Counter.name)
+    private counterModel: Model<CounterDocument>,
+    @InjectModel(Service.name)
+    private serviceModel: Model<ServiceDocument>,
+    private readonly agentAssignmentsService: AgentAssignmentsService,
   ) {}
 
-  async today(serviceId?: string) {
-    const b = dayBounds(new Date().toISOString().slice(0, 10));
-    const filter: Record<string, unknown> = {
-      date: { $gte: b.start, $lt: b.end },
-    };
-    if (serviceId) {
-      if (!Types.ObjectId.isValid(serviceId))
-        throw new BadRequestException('Service invalide');
-      filter.serviceId = serviceId;
+  private getDayRange(date = new Date()) {
+    const { start, end } = getBusinessDayRange(date);
+    return { start, end };
+  }
+
+  private validateServiceId(serviceId: string) {
+    if (!Types.ObjectId.isValid(serviceId)) {
+      throw new BadRequestException('Invalid Service ID format');
     }
-    return this.model
-      .find(filter)
+  }
+
+  private isDuplicateKeyError(error: unknown) {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error as { code?: number }).code === 11000
+    );
+  }
+
+  private async syncAppointmentCheckedIn(appointment: AppointmentDocument) {
+    if (appointment.status === AppointmentStatus.CHECKED_IN) return;
+    appointment.status = AppointmentStatus.CHECKED_IN;
+    await appointment.save();
+  }
+
+  private async getNextQueuePosition(
+    serviceId: Types.ObjectId,
+    now = new Date(),
+  ) {
+    const { start, end, dateKey } = getBusinessDayRange(now);
+    const sequencePath = `queueSequences.${dateKey}`;
+    const existingCount = await this.queueEntryModel.countDocuments({
+      serviceId,
+      date: { $gte: start, $lt: end },
+    });
+
+    const updatedService = await this.serviceModel.findByIdAndUpdate(
+      serviceId,
+      [
+        {
+          $set: {
+            [sequencePath]: {
+              $add: [{ $ifNull: [`$${sequencePath}`, existingCount] }, 1],
+            },
+          },
+        },
+      ],
+      { new: true },
+    );
+
+    if (!updatedService) throw new NotFoundException('Service not found');
+
+    const position = updatedService.queueSequences?.get(dateKey);
+    if (!position) {
+      throw new BadRequestException('Could not allocate a queue position');
+    }
+
+    return position;
+  }
+
+  private async authorizeAgentService(actor: QueueActor, serviceId: string) {
+    if (actor.role === UserRole.AGENT) {
+      await this.agentAssignmentsService.assertAgentService(
+        actor.userId,
+        serviceId,
+      );
+    }
+  }
+
+  private async authorizeAgentEntry(
+    actor: QueueActor,
+    entry: QueueEntryDocument,
+  ) {
+    if (actor.role !== UserRole.AGENT) return;
+    if (!entry.counterId) {
+      throw new BadRequestException('Ticket has no counter assignment');
+    }
+
+    await this.agentAssignmentsService.assertAgentCounter(
+      actor.userId,
+      entry.counterId.toString(),
+    );
+  }
+
+  async getTodayQueue(serviceId: string, actor: QueueActor) {
+    this.validateServiceId(serviceId);
+    await this.authorizeAgentService(actor, serviceId);
+    const { start, end } = this.getDayRange();
+
+    return this.queueEntryModel
+      .find({
+        serviceId,
+        date: { $gte: start, $lt: end },
+      })
       .populate({
         path: 'appointmentId',
-        populate: { path: 'userId serviceId' },
+        populate: { path: 'userId', select: 'firstName lastName' },
       })
       .populate('counterId')
       .sort({ position: 1 });
   }
 
-  async publicDisplay(serviceId?: string) {
-    const entries = await this.today(serviceId);
-    return entries.filter((entry) =>
-      [
-        QueueStatus.WAITING,
-        QueueStatus.CALLED,
-        QueueStatus.IN_PROGRESS,
-      ].includes(entry.status),
-    );
-  }
+  async getPublicDisplayQueue(serviceId: string) {
+    this.validateServiceId(serviceId);
+    const { start, end } = this.getDayRange();
 
-  async myStatus(userId: string) {
-    const b = dayBounds(new Date().toISOString().slice(0, 10));
-    const entries = await this.model
+    const entries = await this.queueEntryModel
       .find({
-        date: { $gte: b.start, $lt: b.end },
-        status: { $nin: [QueueStatus.FINISHED, QueueStatus.ABSENT] },
+        serviceId,
+        date: { $gte: start, $lt: end },
+        status: {
+          $in: [
+            QueueStatus.WAITING,
+            QueueStatus.CALLED,
+            QueueStatus.IN_PROGRESS,
+          ],
+        },
       })
-      .populate({
-        path: 'appointmentId',
-        match: { userId },
-        populate: { path: 'serviceId' },
-      })
-      .populate('counterId')
-      .sort({ position: -1 });
-    return entries.find((entry: any) => entry.appointmentId) || null;
+      .populate({ path: 'appointmentId', select: 'ticketNumber' })
+      .populate({ path: 'counterId', select: 'number name' })
+      .sort({ position: 1 })
+      .lean();
+
+    return entries.map((entry: any) => ({
+      _id: entry._id,
+      position: entry.position,
+      status: entry.status,
+      ticketNumber: entry.appointmentId?.ticketNumber ?? 'N/A',
+      counterNumber: entry.counterId?.number ?? null,
+      counterName: entry.counterId?.name ?? null,
+    }));
   }
 
-  async checkIn(qrToken: string, user: { userId: string; role: UserRole }) {
-    const appointment = await this.appointments.findOne({ qrToken });
-    if (!appointment) throw new NotFoundException('QR invalide');
+  async getMyQueueStatus(appointmentId: string, userId: string) {
     if (
-      user.role === UserRole.USER &&
-      appointment.userId.toString() !== user.userId
-    )
-      throw new ForbiddenException('Ce ticket ne vous appartient pas');
-    const b = dayBounds(new Date().toISOString().slice(0, 10));
-    if (appointment.date < b.start || appointment.date >= b.end)
-      throw new BadRequestException(
-        'QR valable uniquement le jour du rendez-vous',
+      !Types.ObjectId.isValid(appointmentId) ||
+      !Types.ObjectId.isValid(userId)
+    ) {
+      throw new BadRequestException('Invalid appointment or user ID');
+    }
+
+    const appointment = await this.appointmentModel.findOne({
+      _id: appointmentId,
+      userId,
+    });
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found');
+    }
+
+    const service = await this.serviceModel.findById(appointment.serviceId);
+    if (!service) throw new NotFoundException('Service not found');
+
+    const entry = await this.queueEntryModel
+      .findOne({ appointmentId: appointment._id })
+      .populate('counterId', 'number name');
+
+    if (!entry) {
+      return {
+        appointmentId: appointment._id,
+        ticketNumber: appointment.ticketNumber,
+        appointmentStatus: appointment.status,
+        serviceName: service.name,
+        queueStatus: null,
+        position: null,
+        peopleAhead: null,
+        estimatedWaitMinutes: null,
+        averageServiceMinutes: service.avgDuration,
+        counter: null,
+      };
+    }
+
+    const { start, end } = this.getDayRange(entry.date);
+    let peopleAhead = 0;
+
+    if (entry.status === QueueStatus.WAITING) {
+      peopleAhead = await this.queueEntryModel.countDocuments({
+        serviceId: entry.serviceId,
+        date: { $gte: start, $lt: end },
+        position: { $lt: entry.position },
+        status: {
+          $in: [
+            QueueStatus.WAITING,
+            QueueStatus.CALLED,
+            QueueStatus.IN_PROGRESS,
+          ],
+        },
+      });
+    }
+
+    const recentFinished = await this.queueEntryModel
+      .find({
+        serviceId: entry.serviceId,
+        status: QueueStatus.FINISHED,
+        serviceStartTime: { $ne: null },
+        finishTime: { $ne: null },
+      })
+      .sort({ finishTime: -1 })
+      .limit(30)
+      .select('serviceStartTime finishTime')
+      .lean();
+
+    const processingSamples = recentFinished
+      .map((sample: any) => {
+        const startTime = new Date(sample.serviceStartTime).getTime();
+        const finishTime = new Date(sample.finishTime).getTime();
+        return (finishTime - startTime) / 60000;
+      })
+      .filter(
+        (minutes) => Number.isFinite(minutes) && minutes > 0 && minutes < 240,
       );
+
+    const averageServiceMinutes = processingSamples.length
+      ? Math.max(
+          1,
+          Math.round(
+            processingSamples.reduce((sum, value) => sum + value, 0) /
+              processingSamples.length,
+          ),
+        )
+      : service.avgDuration;
+
+    const estimatedWaitMinutes =
+      entry.status === QueueStatus.WAITING
+        ? Math.max(0, Math.ceil(peopleAhead * averageServiceMinutes))
+        : 0;
+
+    const populatedCounter = entry.counterId as any;
+
+    return {
+      appointmentId: appointment._id,
+      ticketNumber: appointment.ticketNumber,
+      appointmentStatus: appointment.status,
+      serviceName: service.name,
+      queueStatus: entry.status,
+      position: entry.position,
+      peopleAhead,
+      estimatedWaitMinutes,
+      averageServiceMinutes,
+      counter: populatedCounter
+        ? {
+            id: populatedCounter._id,
+            number: populatedCounter.number,
+            name: populatedCounter.name,
+          }
+        : null,
+      checkInTime: entry.checkInTime ?? null,
+      calledTime: entry.calledTime ?? null,
+      serviceStartTime: entry.serviceStartTime ?? null,
+      finishTime: entry.finishTime ?? null,
+    };
+  }
+
+  async checkIn(qrToken: string, actor: QueueActor) {
+    const appointment = await this.appointmentModel.findOne({ qrToken });
+    if (!appointment) {
+      throw new NotFoundException(
+        'Invalid QR token. Please check your ticket.',
+      );
+    }
+
     if (
-      [
-        AppointmentStatus.CANCELLED,
-        AppointmentStatus.ABSENT,
-        AppointmentStatus.FINISHED,
-      ].includes(appointment.status)
-    )
-      throw new BadRequestException('Rendez-vous non pointable');
-    const existing = await this.model.findOne({
+      actor.role === UserRole.USER &&
+      appointment.userId.toString() !== actor.userId
+    ) {
+      throw new ForbiddenException('This QR ticket belongs to another user');
+    }
+    await this.authorizeAgentService(actor, appointment.serviceId.toString());
+
+    if (appointment.status === AppointmentStatus.CANCELLED) {
+      throw new BadRequestException(
+        'Check-in failed: This appointment has been cancelled.',
+      );
+    }
+
+    if (
+      [AppointmentStatus.FINISHED, AppointmentStatus.ABSENT].includes(
+        appointment.status,
+      )
+    ) {
+      throw new BadRequestException(
+        `Check-in is not allowed for an appointment with status ${appointment.status}`,
+      );
+    }
+
+    const todayStr = getDateKeyInTimeZone(new Date());
+    const apptStr = new Date(appointment.date).toISOString().split('T')[0];
+
+    if (todayStr !== apptStr) {
+      throw new BadRequestException(
+        `QR code is only valid on the day of the appointment. Today is ${todayStr}, appointment is ${apptStr}.`,
+      );
+    }
+
+    const existingEntry = await this.queueEntryModel.findOne({
       appointmentId: appointment._id,
     });
-    if (existing) return existing;
-    const last = await this.model
-      .findOne({
-        serviceId: appointment.serviceId,
-        date: { $gte: b.start, $lt: b.end },
-      })
-      .sort({ position: -1 });
+
+    if (existingEntry) {
+      if (existingEntry.status === QueueStatus.WAITING) {
+        await this.syncAppointmentCheckedIn(appointment);
+        return existingEntry;
+      }
+
+      throw new BadRequestException(
+        `This ticket has already been checked in and is currently ${existingEntry.status}`,
+      );
+    }
+
     const now = new Date();
-    const entry = await this.model.create({
+    const position = await this.getNextQueuePosition(
+      appointment.serviceId,
+      now,
+    );
+    const entry = new this.queueEntryModel({
       appointmentId: appointment._id,
       serviceId: appointment.serviceId,
       date: now,
       checkInTime: now,
-      position: (last?.position || 0) + 1,
+      position,
       status: QueueStatus.WAITING,
     });
-    await this.appointments.updateOne(
-      { _id: appointment._id },
-      { status: AppointmentStatus.CHECKED_IN, checkedInDate: now },
-    );
-    return entry;
+
+    try {
+      const savedEntry = await entry.save();
+      await this.syncAppointmentCheckedIn(appointment);
+      return savedEntry;
+    } catch (error) {
+      if (this.isDuplicateKeyError(error)) {
+        const racedEntry = await this.queueEntryModel.findOne({
+          appointmentId: appointment._id,
+        });
+
+        if (racedEntry) {
+          if (racedEntry.status !== QueueStatus.WAITING) {
+            throw new BadRequestException(
+              `This ticket has already been checked in and is currently ${racedEntry.status}`,
+            );
+          }
+
+          await this.syncAppointmentCheckedIn(appointment);
+          return racedEntry;
+        }
+      }
+
+      throw error;
+    }
   }
 
-  async callNext(serviceId: string, counterId: string, agentId: string) {
+  async callNext(serviceId: string, counterId: string, actor: QueueActor) {
     if (
       !Types.ObjectId.isValid(serviceId) ||
       !Types.ObjectId.isValid(counterId)
-    )
-      throw new BadRequestException('Service ou guichet invalide');
-    const counter = await this.counters.findById(counterId);
-    if (!counter || counter.status !== 'ACTIVE')
-      throw new BadRequestException('Guichet indisponible');
-    if (counter.serviceId?.toString() !== serviceId)
-      throw new BadRequestException('Le guichet ne traite pas ce service');
-    const b = dayBounds(new Date().toISOString().slice(0, 10));
-    const next = await this.model
-      .findOne({
-        serviceId,
-        date: { $gte: b.start, $lt: b.end },
-        status: QueueStatus.WAITING,
-      })
-      .sort({ position: 1 });
-    if (!next) throw new NotFoundException("Personne n'attend");
-    next.status = QueueStatus.CALLED;
-    next.counterId = new Types.ObjectId(counterId);
-    next.agentId = new Types.ObjectId(agentId);
-    next.calledTime = new Date();
-    await this.appointments.updateOne(
-      { _id: next.appointmentId },
-      { status: AppointmentStatus.CHECKED_IN },
-    );
-    return next.save();
-  }
-
-  private async transition(
-    id: string,
-    expected: QueueStatus,
-    status: QueueStatus,
-    appointmentStatus: AppointmentStatus,
-    field: 'startTime' | 'finishTime',
-  ) {
-    const entry = await this.model.findById(id);
-    if (!entry) throw new NotFoundException('Ticket introuvable');
-    if (entry.status !== expected)
-      throw new BadRequestException(`Transition ${expected} requise`);
-    entry.status = status;
-    entry[field] = new Date();
-    await this.appointments.updateOne(
-      { _id: entry.appointmentId },
-      { status: appointmentStatus },
-    );
-    return entry.save();
-  }
-
-  start(id: string) {
-    return this.transition(
-      id,
-      QueueStatus.CALLED,
-      QueueStatus.IN_PROGRESS,
-      AppointmentStatus.CHECKED_IN,
-      'startTime',
-    );
-  }
-  finish(id: string) {
-    return this.transition(
-      id,
-      QueueStatus.IN_PROGRESS,
-      QueueStatus.FINISHED,
-      AppointmentStatus.FINISHED,
-      'finishTime',
-    );
-  }
-
-  async absent(id: string) {
-    const entry = await this.model.findById(id);
-    if (!entry) throw new NotFoundException('Ticket introuvable');
-    if (entry.status !== QueueStatus.CALLED || !entry.calledTime)
-      throw new BadRequestException('Ticket non appelé');
-    const config = await this.settings.get();
-    if (
-      Date.now() - entry.calledTime.getTime() <
-      Number(config.absenceDelayMinutes || 5) * 60000
-    )
+    ) {
       throw new BadRequestException(
-        `Délai d'absence de ${config.absenceDelayMinutes} min non écoulé`,
+        'Invalid Service or Counter ID format. Please check your configuration.',
       );
-    entry.status = QueueStatus.ABSENT;
-    entry.finishTime = new Date();
-    await this.appointments.updateOne(
-      { _id: entry.appointmentId },
-      { status: AppointmentStatus.ABSENT },
+    }
+
+    await this.authorizeAgentService(actor, serviceId);
+    if (actor.role === UserRole.AGENT) {
+      await this.agentAssignmentsService.assertAgentCounter(
+        actor.userId,
+        counterId,
+      );
+    }
+
+    const counter = await this.counterModel.findById(counterId);
+    if (!counter) throw new NotFoundException('Counter not found');
+    if (counter.status !== CounterStatus.ACTIVE) {
+      throw new BadRequestException('Selected counter is not active');
+    }
+    if (counter.serviceId.toString() !== serviceId) {
+      throw new BadRequestException(
+        'Selected counter does not belong to the selected service',
+      );
+    }
+
+    const { start, end } = this.getDayRange();
+    const nextEntry = await this.queueEntryModel.findOneAndUpdate(
+      {
+        serviceId,
+        date: { $gte: start, $lt: end },
+        status: QueueStatus.WAITING,
+      },
+      {
+        $set: {
+          status: QueueStatus.CALLED,
+          counterId: new Types.ObjectId(counterId),
+          calledTime: new Date(),
+        },
+      },
+      { new: true, sort: { position: 1 } },
     );
+
+    if (!nextEntry) {
+      throw new NotFoundException('No one is waiting in the queue');
+    }
+
+    return nextEntry;
+  }
+
+  async startService(queueEntryId: string, actor: QueueActor) {
+    const entry = await this.queueEntryModel.findById(queueEntryId);
+    if (!entry) throw new NotFoundException('Queue entry not found');
+    if (entry.status !== QueueStatus.CALLED) {
+      throw new BadRequestException('Can only start a CALLED ticket');
+    }
+
+    await this.authorizeAgentEntry(actor, entry);
+    entry.status = QueueStatus.IN_PROGRESS;
+    entry.serviceStartTime = new Date();
     return entry.save();
+  }
+
+  async finishService(queueEntryId: string, actor: QueueActor) {
+    const entry = await this.queueEntryModel.findById(queueEntryId);
+    if (!entry) throw new NotFoundException('Queue entry not found');
+    if (entry.status !== QueueStatus.IN_PROGRESS) {
+      throw new BadRequestException('Can only finish an IN_PROGRESS ticket');
+    }
+
+    await this.authorizeAgentEntry(actor, entry);
+    entry.status = QueueStatus.FINISHED;
+    entry.finishTime = new Date();
+    await entry.save();
+
+    await this.appointmentModel.findByIdAndUpdate(entry.appointmentId, {
+      status: AppointmentStatus.FINISHED,
+    });
+
+    return entry;
+  }
+
+  async markAbsent(queueEntryId: string, actor: QueueActor) {
+    const entry = await this.queueEntryModel.findById(queueEntryId);
+    if (!entry) throw new NotFoundException('Queue entry not found');
+    if (entry.status !== QueueStatus.CALLED) {
+      throw new BadRequestException('Can only mark a CALLED ticket as absent');
+    }
+
+    await this.authorizeAgentEntry(actor, entry);
+
+    if (!entry.calledTime) {
+      throw new BadRequestException('Called time is missing for this ticket');
+    }
+
+    const service = await this.serviceModel.findById(entry.serviceId);
+    if (!service) throw new NotFoundException('Service not found');
+
+    const delayMinutes = service.absenceDelayMinutes ?? 15;
+    const eligibleAt =
+      new Date(entry.calledTime).getTime() + delayMinutes * 60 * 1000;
+    const remainingMs = eligibleAt - Date.now();
+
+    if (remainingMs > 0) {
+      const remainingMinutes = Math.ceil(remainingMs / 60000);
+      throw new BadRequestException(
+        `Cannot mark this ticket absent yet. Wait ${remainingMinutes} more minute${remainingMinutes === 1 ? '' : 's'}.`,
+      );
+    }
+
+    entry.status = QueueStatus.ABSENT;
+    await entry.save();
+
+    await this.appointmentModel.findByIdAndUpdate(entry.appointmentId, {
+      status: AppointmentStatus.ABSENT,
+    });
+
+    return entry;
   }
 }

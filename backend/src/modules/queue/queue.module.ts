@@ -1,20 +1,19 @@
 import { Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
-import { QueueEntry, QueueEntrySchema } from './schemas/queue-entry.schema';
 import { QueueService } from './queue.service';
 import { QueueController } from './queue.controller';
+import { QueueDataModule } from './queue-data.module';
 import { AppointmentsModule } from '../appointments/appointments.module';
 import { CountersModule } from '../counters/counters.module';
-import { SettingsModule } from '../settings/settings.module';
+import { ServicesModule } from '../services/services.module';
+import { AgentAssignmentsModule } from '../agent-assignments/agent-assignments.module';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([
-      { name: QueueEntry.name, schema: QueueEntrySchema },
-    ]),
+    QueueDataModule,
     AppointmentsModule,
     CountersModule,
-    SettingsModule,
+    ServicesModule,
+    AgentAssignmentsModule,
   ],
   controllers: [QueueController],
   providers: [QueueService],
