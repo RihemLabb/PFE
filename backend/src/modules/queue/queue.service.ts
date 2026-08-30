@@ -298,7 +298,9 @@ export class QueueService {
   async checkIn(qrToken: string, actor: QueueActor) {
     const appointment = await this.appointmentModel.findOne({ qrToken });
     if (!appointment) {
-      throw new NotFoundException('Invalid QR token. Please check your ticket.');
+      throw new NotFoundException(
+        'Invalid QR token. Please check your ticket.',
+      );
     }
 
     if (
@@ -350,7 +352,10 @@ export class QueueService {
     }
 
     const now = new Date();
-    const position = await this.getNextQueuePosition(appointment.serviceId, now);
+    const position = await this.getNextQueuePosition(
+      appointment.serviceId,
+      now,
+    );
     const entry = new this.queueEntryModel({
       appointmentId: appointment._id,
       serviceId: appointment.serviceId,
@@ -386,12 +391,11 @@ export class QueueService {
     }
   }
 
-  async callNext(
-    serviceId: string,
-    counterId: string,
-    actor: QueueActor,
-  ) {
-    if (!Types.ObjectId.isValid(serviceId) || !Types.ObjectId.isValid(counterId)) {
+  async callNext(serviceId: string, counterId: string, actor: QueueActor) {
+    if (
+      !Types.ObjectId.isValid(serviceId) ||
+      !Types.ObjectId.isValid(counterId)
+    ) {
       throw new BadRequestException(
         'Invalid Service or Counter ID format. Please check your configuration.',
       );

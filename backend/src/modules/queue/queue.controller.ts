@@ -23,7 +23,9 @@ export class QueueController {
   constructor(private readonly queueService: QueueService) {}
 
   @Get('display')
-  @ApiOperation({ summary: 'Get sanitized live queue data for a public display' })
+  @ApiOperation({
+    summary: 'Get sanitized live queue data for a public display',
+  })
   getPublicDisplayQueue(@Query('serviceId') serviceId: string) {
     return this.queueService.getPublicDisplayQueue(serviceId);
   }
@@ -31,7 +33,9 @@ export class QueueController {
   @Get('my-status')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Get live queue position and ETA for my appointment' })
+  @ApiOperation({
+    summary: 'Get live queue position and ETA for my appointment',
+  })
   getMyQueueStatus(
     @Query('appointmentId') appointmentId: string,
     @CurrentUser() user: any,

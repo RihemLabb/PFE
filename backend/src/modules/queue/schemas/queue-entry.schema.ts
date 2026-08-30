@@ -6,7 +6,12 @@ export type QueueEntryDocument = QueueEntry & Document;
 
 @Schema({ timestamps: true })
 export class QueueEntry {
-  @Prop({ type: Types.ObjectId, ref: 'Appointment', required: true, unique: true })
+  @Prop({
+    type: Types.ObjectId,
+    ref: 'Appointment',
+    required: true,
+    unique: true,
+  })
   appointmentId: Types.ObjectId;
 
   @Prop({ type: Types.ObjectId, ref: 'Service', required: true })

@@ -20,6 +20,7 @@ interface Appointment {
   timeSlot: string;
   status: string;
   serviceId: {
+    _id: string;
     name: string;
     requiredDocs?: string[];
   };
@@ -103,6 +104,10 @@ export default function History() {
         serviceName: appointment.serviceId?.name || 'Service',
       },
     });
+  };
+
+  const openReschedule = (appointment: Appointment) => {
+    router.push({ pathname: '/booking', params: { appointmentId: appointment._id, serviceId: appointment.serviceId._id, serviceName: appointment.serviceId.name } });
   };
 
   const cancelAppointment = (appointment: Appointment) => {
@@ -238,6 +243,12 @@ export default function History() {
                 ) : null}
 
                 {canCancel && (
+                  <TouchableOpacity style={styles.rescheduleButton} onPress={() => openReschedule(item)}>
+                    <Text style={styles.rescheduleButtonText}>Reschedule</Text>
+                  </TouchableOpacity>
+                )}
+
+                {canCancel && (
                   <TouchableOpacity
                     style={styles.cancelButton}
                     disabled={cancellingId === item._id}
@@ -357,6 +368,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: 'center',
   },
+  rescheduleButton: { borderWidth: 1, borderColor: '#A5B4FC', borderRadius: 12, paddingHorizontal: 18, paddingVertical: 12, alignItems: 'center' },
+  rescheduleButtonText: { color: '#4F46E5', fontWeight: '700', fontSize: 13 },
   cancelButtonText: { color: '#DC2626', fontWeight: '700', fontSize: 13 },
   docsSection: {
     marginTop: 16,

@@ -89,9 +89,11 @@ describe('QueueService', () => {
         status: QueueStatus.WAITING,
         position: 1,
       };
-      const entrySave = jest.fn().mockRejectedValue(
-        Object.assign(new Error('duplicate queue entry'), { code: 11000 }),
-      );
+      const entrySave = jest
+        .fn()
+        .mockRejectedValue(
+          Object.assign(new Error('duplicate queue entry'), { code: 11000 }),
+        );
 
       appointmentModel.findOne.mockResolvedValue(appointment);
       queueEntryModel.findOne
@@ -170,9 +172,7 @@ describe('QueueService', () => {
 
   describe('business day boundaries', () => {
     it('maps a Tunis business day to the matching UTC range', () => {
-      const range = getBusinessDayRange(
-        new Date('2026-08-13T23:30:00.000Z'),
-      );
+      const range = getBusinessDayRange(new Date('2026-08-13T23:30:00.000Z'));
 
       expect(range.dateKey).toBe('2026-08-14');
       expect(range.start.toISOString()).toBe('2026-08-13T23:00:00.000Z');

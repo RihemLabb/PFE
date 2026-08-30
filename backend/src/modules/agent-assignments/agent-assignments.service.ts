@@ -52,7 +52,10 @@ export class AgentAssignmentsService {
   }
 
   async assertAgentCounter(agentId: string, counterId: string) {
-    if (!Types.ObjectId.isValid(agentId) || !Types.ObjectId.isValid(counterId)) {
+    if (
+      !Types.ObjectId.isValid(agentId) ||
+      !Types.ObjectId.isValid(counterId)
+    ) {
       throw new BadRequestException('Invalid agent or counter ID');
     }
 
@@ -70,7 +73,10 @@ export class AgentAssignmentsService {
   }
 
   async assertAgentService(agentId: string, serviceId: string) {
-    if (!Types.ObjectId.isValid(agentId) || !Types.ObjectId.isValid(serviceId)) {
+    if (
+      !Types.ObjectId.isValid(agentId) ||
+      !Types.ObjectId.isValid(serviceId)
+    ) {
       throw new BadRequestException('Invalid agent or service ID');
     }
 
@@ -79,7 +85,9 @@ export class AgentAssignmentsService {
       .populate('counterId');
 
     if (!assignment) {
-      throw new ForbiddenException('No active counter is assigned to this agent');
+      throw new ForbiddenException(
+        'No active counter is assigned to this agent',
+      );
     }
 
     const counter = assignment.counterId as unknown as CounterDocument;
@@ -128,7 +136,9 @@ export class AgentAssignmentsService {
       isActive: true,
     });
 
-    return this.populateAssignment(this.assignmentModel.findById(assignment._id));
+    return this.populateAssignment(
+      this.assignmentModel.findById(assignment._id),
+    );
   }
 
   async unassign(id: string) {

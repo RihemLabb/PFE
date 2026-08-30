@@ -11,6 +11,9 @@ export class AvailabilityController {
   @Get()
   @ApiOperation({ summary: 'Get available slots for a service and date' })
   getAvailability(@Query() query: AvailabilityQueryDto) {
-    return this.appointmentsService.getAvailability(query.serviceId, query.date);
+    return this.appointmentsService.getAvailability(
+      query.serviceId,
+      query.date,
+    );
   }
 }

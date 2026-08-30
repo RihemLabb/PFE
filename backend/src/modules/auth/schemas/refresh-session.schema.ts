@@ -15,6 +15,7 @@ export class RefreshSession {
   expiresAt: Date;
 }
 
-export const RefreshSessionSchema = SchemaFactory.createForClass(RefreshSession);
+export const RefreshSessionSchema =
+  SchemaFactory.createForClass(RefreshSession);
 
 RefreshSessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });

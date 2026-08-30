@@ -32,8 +32,12 @@ async function seed() {
   const app = await NestFactory.createApplicationContext(AppModule);
 
   const userModel = app.get<Model<UserDocument>>(getModelToken(User.name));
-  const serviceModel = app.get<Model<ServiceDocument>>(getModelToken(Service.name));
-  const counterModel = app.get<Model<CounterDocument>>(getModelToken(Counter.name));
+  const serviceModel = app.get<Model<ServiceDocument>>(
+    getModelToken(Service.name),
+  );
+  const counterModel = app.get<Model<CounterDocument>>(
+    getModelToken(Counter.name),
+  );
   const appointmentModel = app.get<Model<AppointmentDocument>>(
     getModelToken(Appointment.name),
   );

@@ -74,6 +74,9 @@ export default function Home() {
         >
           <Text style={styles.inactivePillText}>My Appointments</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={styles.inactivePill} onPress={() => router.push('/notifications')}>
+          <Text style={styles.inactivePillText}>Notifications</Text>
+        </TouchableOpacity>
         <TouchableOpacity
           style={styles.inactivePill}
           onPress={() => router.push('/profile')}

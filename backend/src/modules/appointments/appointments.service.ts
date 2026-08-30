@@ -24,6 +24,7 @@ import {
   getBusinessDayRange,
   getDateKeyInTimeZone,
 } from '../../common/utils/business-date';
+import { RescheduleAppointmentDto } from './dto/create-appointment.dto';
 
 @Injectable()
 export class AppointmentsService {
@@ -189,8 +190,10 @@ export class AppointmentsService {
     }
 
     const prefix =
-      service.name.replace(/[^a-zA-Z0-9]/g, '').slice(0, 3).toUpperCase() ||
-      'TKT';
+      service.name
+        .replace(/[^a-zA-Z0-9]/g, '')
+        .slice(0, 3)
+        .toUpperCase() || 'TKT';
     return `${prefix}-${String(sequenceValue).padStart(3, '0')}`;
   }
 
@@ -285,7 +288,10 @@ export class AppointmentsService {
       };
     }
 
-    const schedule = await this.resolveScheduleForDate(service, appointmentDate);
+    const schedule = await this.resolveScheduleForDate(
+      service,
+      appointmentDate,
+    );
     const serviceSlots = schedule.isOpen
       ? this.buildServiceSlots(
           service,
@@ -347,7 +353,10 @@ export class AppointmentsService {
     const appointmentDate = this.parseDateOnly(createAppointmentDto.date);
     this.ensureNotPast(appointmentDate);
 
-    const schedule = await this.resolveScheduleForDate(service, appointmentDate);
+    const schedule = await this.resolveScheduleForDate(
+      service,
+      appointmentDate,
+    );
     if (!schedule.isOpen) {
       throw new BadRequestException(
         schedule.closureReason || 'This service is closed on the selected date',
@@ -457,6 +466,96 @@ export class AppointmentsService {
       appointment.timeSlot,
     );
     return cancelledAppointment;
+  }
+
+  async reschedule(
+    id: string,
+    dto: RescheduleAppointmentDto,
+    requesterUserId: string,
+    requesterRole: UserRole,
+  ) {
+    if (!Types.ObjectId.isValid(id))
+      throw new BadRequestException('Invalid appointment ID');
+    const appointment = await this.appointmentModel.findById(id);
+    if (!appointment) throw new NotFoundException('Appointment not found');
+    const canManageAny = [UserRole.ADMIN, UserRole.SUPERVISOR].includes(
+      requesterRole,
+    );
+    if (!canManageAny && appointment.userId.toString() !== requesterUserId)
+      throw new ForbiddenException(
+        'You are not allowed to reschedule this appointment',
+      );
+    if (appointment.status !== AppointmentStatus.CONFIRMED)
+      throw new BadRequestException(
+        'Only confirmed appointments can be rescheduled',
+      );
+
+    const service = await this.serviceModel.findById(appointment.serviceId);
+    if (!service || !service.isActive)
+      throw new BadRequestException('This service is currently unavailable');
+    const nextDate = this.parseDateOnly(dto.date);
+    this.ensureNotPast(nextDate);
+    if (
+      appointment.date.getTime() === nextDate.getTime() &&
+      appointment.timeSlot === dto.timeSlot
+    )
+      return appointment;
+    const schedule = await this.resolveScheduleForDate(service, nextDate);
+    if (
+      !schedule.isOpen ||
+      !this.buildServiceSlots(
+        service,
+        schedule.openingTime,
+        schedule.closingTime,
+      ).includes(dto.timeSlot)
+    )
+      throw new BadRequestException(
+        schedule.closureReason || 'The selected slot is unavailable',
+      );
+    const duplicate = await this.appointmentModel.exists({
+      _id: { $ne: appointment._id },
+      userId: appointment.userId,
+      serviceId: appointment.serviceId,
+      date: nextDate,
+      timeSlot: dto.timeSlot,
+      status: { $ne: AppointmentStatus.CANCELLED },
+    });
+    if (duplicate)
+      throw new ConflictException(
+        'You already have an active appointment for this service and time slot',
+      );
+    const bookings = await this.appointmentModel.countDocuments({
+      serviceId: appointment.serviceId,
+      date: nextDate,
+      timeSlot: dto.timeSlot,
+      status: { $ne: AppointmentStatus.CANCELLED },
+    });
+    await this.reserveSlot(service, nextDate, dto.timeSlot, bookings);
+    const previousDate = appointment.date;
+    const previousSlot = appointment.timeSlot;
+    try {
+      appointment.date = nextDate;
+      appointment.timeSlot = dto.timeSlot;
+      appointment.ticketNumber = await this.getNextTicketNumber(
+        service,
+        nextDate,
+      );
+      appointment.qrToken = crypto.randomUUID();
+      const saved = await appointment.save();
+      await this.releaseSlotReservation(
+        appointment.serviceId,
+        previousDate,
+        previousSlot,
+      );
+      return saved;
+    } catch (error) {
+      await this.releaseSlotReservation(
+        appointment.serviceId,
+        nextDate,
+        dto.timeSlot,
+      ).catch(() => undefined);
+      throw error;
+    }
   }
 
   async getDashboardStats() {

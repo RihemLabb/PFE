@@ -67,7 +67,8 @@ export class CreateServiceDto {
 
   @ApiProperty({
     example: 15,
-    description: 'Minutes after a ticket is called before it can be marked absent',
+    description:
+      'Minutes after a ticket is called before it can be marked absent',
     required: false,
     default: 15,
   })
@@ -137,7 +138,8 @@ export class UpdateServiceDto {
 
   @ApiProperty({
     example: 15,
-    description: 'Minutes after a ticket is called before it can be marked absent',
+    description:
+      'Minutes after a ticket is called before it can be marked absent',
     required: false,
   })
   @IsInt()

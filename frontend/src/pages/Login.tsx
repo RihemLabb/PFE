@@ -27,13 +27,13 @@ export default function Login() {
 
       if (!STAFF_ROLES.includes(data.user.role)) {
         await api
-          .post('/auth/logout', { refreshToken: data.refresh_token })
+          .post('/auth/logout', {})
           .catch(() => undefined);
         toast.error('This portal is reserved for staff accounts.');
         return;
       }
 
-      setAuth(data.user, data.access_token, data.refresh_token);
+      setAuth(data.user, data.access_token);
       toast.success(`Welcome back, ${data.user.firstName}!`);
       navigate(
         data.user.role === 'AGENT' ? '/dashboard/queue' : '/dashboard',

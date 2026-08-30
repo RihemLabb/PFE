@@ -6,7 +6,10 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
-import { CreateAppointmentDto } from './dto/create-appointment.dto';
+import {
+  CreateAppointmentDto,
+  RescheduleAppointmentDto,
+} from './dto/create-appointment.dto';
 
 @ApiTags('Appointments')
 @Controller('appointments')
@@ -58,5 +61,18 @@ export class AppointmentsController {
   @ApiOperation({ summary: 'Cancel an appointment (Owner/Admin/Supervisor)' })
   cancel(@Param('id') id: string, @CurrentUser() user: any) {
     return this.appointmentsService.cancel(id, user.userId, user.role);
+  }
+
+  @Post(':id/reschedule')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.USER, UserRole.ADMIN, UserRole.SUPERVISOR)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Reschedule a confirmed appointment' })
+  reschedule(
+    @Param('id') id: string,
+    @Body() dto: RescheduleAppointmentDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.appointmentsService.reschedule(id, dto, user.userId, user.role);
   }
 }

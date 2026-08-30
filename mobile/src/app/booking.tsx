@@ -40,6 +40,7 @@ export default function Booking() {
   const serviceName = Array.isArray(params.serviceName)
     ? params.serviceName[0]
     : params.serviceName;
+  const appointmentId = Array.isArray(params.appointmentId) ? params.appointmentId[0] : params.appointmentId;
 
   const dateOptions = useMemo(
     () =>
@@ -92,11 +93,10 @@ export default function Booking() {
 
     setBookingTime(timeSlot);
     try {
-      const { data } = await api.post('/appointments', {
-        serviceId,
-        date: selectedDate,
-        timeSlot,
-      });
+      const payload = { date: selectedDate, timeSlot };
+      const { data } = appointmentId
+        ? await api.post(`/appointments/${appointmentId}/reschedule`, payload)
+        : await api.post('/appointments', { serviceId, ...payload });
 
       router.push({
         pathname: '/ticket',
@@ -126,7 +126,7 @@ export default function Booking() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.eyebrow}>BOOK AN APPOINTMENT</Text>
+      <Text style={styles.eyebrow}>{appointmentId ? 'RESCHEDULE APPOINTMENT' : 'BOOK AN APPOINTMENT'}</Text>
       <Text style={styles.title}>{serviceName || 'Service'}</Text>
       <Text style={styles.subtitle}>
         Choose a date, then select one of the remaining time slots.
@@ -207,7 +207,7 @@ export default function Booking() {
                     !slot.available && styles.slotTextDisabled,
                   ]}
                 >
-                  {busy ? 'Booking…' : slot.time}
+                  {busy ? (appointmentId ? 'Moving…' : 'Booking…') : slot.time}
                 </Text>
                 <Text
                   style={[

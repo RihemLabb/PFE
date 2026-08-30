@@ -24,14 +24,9 @@ describe('AuthService refresh tokens', () => {
       sign: jest.fn().mockReturnValue('new-access-token'),
     };
 
-    service = new AuthService(
-      userModel,
-      refreshSessionModel,
-      jwtService,
-      {
-        get: jest.fn((_key: string, fallback: string) => fallback),
-      } as any,
-    );
+    service = new AuthService(userModel, refreshSessionModel, jwtService, {
+      get: jest.fn((_key: string, fallback: string) => fallback),
+    } as any);
   });
 
   it('rotates a valid refresh token and issues a new access token', async () => {
@@ -49,7 +44,9 @@ describe('AuthService refresh tokens', () => {
 
     refreshSessionModel.findOne.mockResolvedValue(session);
     userModel.findById.mockResolvedValue(user);
-    refreshSessionModel.findOneAndUpdate.mockResolvedValue({ _id: session._id });
+    refreshSessionModel.findOneAndUpdate.mockResolvedValue({
+      _id: session._id,
+    });
 
     const result = await service.refresh('a'.repeat(64));
 

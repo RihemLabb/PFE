@@ -3,6 +3,8 @@ name: CI
 on:
   push:
     branches:
+      - main
+      - 'feature/**'
       - 'fix/**'
   pull_request:
     branches:
@@ -88,6 +90,9 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: UI tests
+        run: npm test
 
       - name: Lint
         run: npm run lint

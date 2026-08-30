@@ -5,7 +5,8 @@ const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 const api = axios.create({
   baseURL,
-  headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,
+  headers: { 'Content-Type': 'application/json', 'X-Client-Platform': 'web' },
 });
 
 interface RetryConfig extends InternalAxiosRequestConfig {
@@ -15,18 +16,15 @@ interface RetryConfig extends InternalAxiosRequestConfig {
 let refreshPromise: Promise<string> | null = null;
 
 async function refreshAccessToken() {
-  const { refreshToken, setTokens } = useAuthStore.getState();
-  if (!refreshToken) {
-    throw new Error('No refresh token available');
-  }
+  const { setToken } = useAuthStore.getState();
 
   const { data } = await axios.post(
     `${baseURL}/auth/refresh`,
-    { refreshToken },
-    { headers: { 'Content-Type': 'application/json' } },
+    {},
+    { withCredentials: true, headers: { 'Content-Type': 'application/json', 'X-Client-Platform': 'web' } },
   );
 
-  setTokens(data.access_token, data.refresh_token);
+  setToken(data.access_token);
   return data.access_token as string;
 }
 

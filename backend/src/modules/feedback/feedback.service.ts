@@ -100,10 +100,8 @@ export class FeedbackService {
     const averageRating = totalFeedback
       ? Number(
           (
-            feedback.reduce(
-              (sum: number, item: any) => sum + item.rating,
-              0,
-            ) / totalFeedback
+            feedback.reduce((sum: number, item: any) => sum + item.rating, 0) /
+            totalFeedback
           ).toFixed(2),
         )
       : 0;
@@ -115,7 +113,8 @@ export class FeedbackService {
 
     feedback.forEach((item: any) => {
       const populated = item.serviceId;
-      const serviceId = populated?._id?.toString() ?? populated?.toString() ?? '';
+      const serviceId =
+        populated?._id?.toString() ?? populated?.toString() ?? '';
       const serviceName = populated?.name ?? 'Service';
       const current = serviceMap.get(serviceId) ?? {
         serviceId,

@@ -60,7 +60,10 @@ export class HolidaysService {
 
   private async ensureService(serviceId?: string | null) {
     if (!serviceId) return null;
-    const service = await this.serviceModel.findById(serviceId).select('_id').lean();
+    const service = await this.serviceModel
+      .findById(serviceId)
+      .select('_id')
+      .lean();
     if (!service) throw new NotFoundException('Service not found');
     return new Types.ObjectId(serviceId);
   }
@@ -124,7 +127,7 @@ export class HolidaysService {
     const nextServiceId =
       dto.serviceId !== undefined
         ? dto.serviceId
-        : existing.serviceId?.toString() ?? null;
+        : (existing.serviceId?.toString() ?? null);
     const serviceObjectId = await this.ensureService(nextServiceId);
     const nextIsClosed = dto.isClosed ?? existing.isClosed;
     const nextOpeningTime = dto.openingTime ?? existing.openingTime;

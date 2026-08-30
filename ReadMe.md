@@ -12,6 +12,8 @@ PFE/
 └── docs/      documentation et captures du PFE
 ```
 
+L'application mobile utilise **Expo SDK 54**. Utilisez les versions verrouillées par `mobile/package-lock.json` avec `npm ci`.
+
 ## Fonctionnalités principales
 
 ### Backend

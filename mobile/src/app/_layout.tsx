@@ -58,6 +58,7 @@ export default function RootLayout() {
         <Stack.Screen name="scanner" options={{ title: 'QR Check-in' }} />
         <Stack.Screen name="feedback" options={{ title: 'Rate Service' }} />
         <Stack.Screen name="profile" options={{ title: 'My Profile' }} />
+        <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
         <Stack.Screen
           name="login"
           options={{ title: 'Login', headerShown: false }}

@@ -18,16 +18,14 @@ async function bootstrap() {
   app.use(compression());
 
   const corsOrigins = configService
-    .get<string>(
-      'CORS_ORIGINS',
-      'http://localhost:5173,http://localhost:8081',
-    )
+    .get<string>('CORS_ORIGINS', 'http://localhost:5173,http://localhost:8081')
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
 
   app.enableCors({
     origin: corsOrigins,
+    credentials: true,
   });
 
   app.useGlobalPipes(

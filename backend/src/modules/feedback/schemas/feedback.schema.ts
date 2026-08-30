@@ -20,7 +20,12 @@ export class Feedback {
   @Prop({ type: Types.ObjectId, ref: User.name, required: true, index: true })
   userId: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: Service.name, required: true, index: true })
+  @Prop({
+    type: Types.ObjectId,
+    ref: Service.name,
+    required: true,
+    index: true,
+  })
   serviceId: Types.ObjectId;
 
   @Prop({ required: true, min: 1, max: 5 })

@@ -14,6 +14,7 @@ import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { QueueModule } from './modules/queue/queue.module';
 import { FeedbackModule } from './modules/feedback/feedback.module';
 import { HolidaysModule } from './modules/holidays/holidays.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { HolidaysModule } from './modules/holidays/holidays.module';
     QueueModule,
     FeedbackModule,
     HolidaysModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [

@@ -29,3 +29,19 @@ export class CreateAppointmentDto {
   })
   timeSlot: string;
 }
+
+export class RescheduleAppointmentDto {
+  @ApiProperty({ example: '2026-08-31' })
+  @IsString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'Date must be in YYYY-MM-DD format',
+  })
+  date: string;
+
+  @ApiProperty({ example: '11:30' })
+  @IsString()
+  @Matches(/^(?:[01]\d|2[0-3]):[0-5]\d$/, {
+    message: 'Time must be in HH:mm format',
+  })
+  timeSlot: string;
+}

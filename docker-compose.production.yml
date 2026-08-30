@@ -1,0 +1,25 @@
+services:
+  mongodb:
+    image: mongo:7
+    restart: unless-stopped
+    volumes: [mongo_data:/data/db]
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      MONGODB_URI: mongodb://mongodb:27017/smart_queue
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_EXPIRES_IN: 15m
+      CORS_ORIGINS: ${PUBLIC_WEB_URL:?PUBLIC_WEB_URL is required}
+      SWAGGER_ENABLED: "false"
+    depends_on: [mongodb]
+  frontend:
+    build:
+      context: ./frontend
+      args: { VITE_API_URL: /api }
+    restart: unless-stopped
+    ports: ["${WEB_PORT:-8080}:80"]
+    depends_on: [backend]
+volumes:
+  mongo_data:

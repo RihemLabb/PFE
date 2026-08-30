@@ -10,7 +10,12 @@ export class AgentAssignment {
   @Prop({ type: Types.ObjectId, ref: User.name, required: true, index: true })
   agentId: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: Counter.name, required: true, index: true })
+  @Prop({
+    type: Types.ObjectId,
+    ref: Counter.name,
+    required: true,
+    index: true,
+  })
   counterId: Types.ObjectId;
 
   @Prop({ type: Date, default: Date.now })
@@ -20,7 +25,8 @@ export class AgentAssignment {
   isActive: boolean;
 }
 
-export const AgentAssignmentSchema = SchemaFactory.createForClass(AgentAssignment);
+export const AgentAssignmentSchema =
+  SchemaFactory.createForClass(AgentAssignment);
 
 AgentAssignmentSchema.index({ agentId: 1, isActive: 1 });
 AgentAssignmentSchema.index({ counterId: 1, isActive: 1 });

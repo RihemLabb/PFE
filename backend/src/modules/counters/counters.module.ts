@@ -8,7 +8,10 @@ import {
   AgentAssignment,
   AgentAssignmentSchema,
 } from '../agent-assignments/schemas/agent-assignment.schema';
-import { QueueEntry, QueueEntrySchema } from '../queue/schemas/queue-entry.schema';
+import {
+  QueueEntry,
+  QueueEntrySchema,
+} from '../queue/schemas/queue-entry.schema';
 
 @Module({
   imports: [

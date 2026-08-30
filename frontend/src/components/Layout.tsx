@@ -76,10 +76,7 @@ export default function Layout() {
   ].filter((item) => (user ? item.roles.includes(user.role) : false));
 
   const handleLogout = async () => {
-    const refreshToken = useAuthStore.getState().refreshToken;
-    if (refreshToken) {
-      await api.post('/auth/logout', { refreshToken }).catch(() => undefined);
-    }
+    await api.post('/auth/logout', {}).catch(() => undefined);
     logout();
     navigate('/login', { replace: true });
   };

@@ -14,19 +14,23 @@ export class Appointment {
   @Prop({ type: Types.ObjectId, ref: Service.name, required: true })
   serviceId: Types.ObjectId;
 
-  @Prop({ required: true }) 
+  @Prop({ required: true })
   date: Date;
 
-  @Prop({ required: true }) 
+  @Prop({ required: true })
   timeSlot: string;
 
-  @Prop({ type: String, enum: AppointmentStatus, default: AppointmentStatus.CONFIRMED })
+  @Prop({
+    type: String,
+    enum: AppointmentStatus,
+    default: AppointmentStatus.CONFIRMED,
+  })
   status: AppointmentStatus;
 
-  @Prop({ required: true, unique: true }) 
+  @Prop({ required: true, unique: true })
   qrToken: string;
 
-  @Prop({ required: true }) 
+  @Prop({ required: true })
   ticketNumber: string;
 }
 
