@@ -41,7 +41,7 @@ export class AgentAssignmentsService {
     );
   }
 
-  async findMine(agentId: string, email?: string) {
+  private async resolveActiveAgentId(agentId: string, email?: string) {
     const identityFilters: Record<string, unknown>[] = [];
     if (Types.ObjectId.isValid(agentId)) {
       identityFilters.push({ _id: new Types.ObjectId(agentId) });
@@ -61,24 +61,27 @@ export class AgentAssignmentsService {
       })
       .select('_id');
     if (!agent) throw new NotFoundException('Agent account not found');
+    return agent._id;
+  }
+
+  async findMine(agentId: string, email?: string) {
+    const resolvedAgentId = await this.resolveActiveAgentId(agentId, email);
 
     return this.populateAssignment(
       this.assignmentModel
-        .findOne({ agentId: agent._id, isActive: true })
+        .findOne({ agentId: resolvedAgentId, isActive: true })
         .sort({ createdAt: -1 }),
     ).exec();
   }
 
-  async assertAgentCounter(agentId: string, counterId: string) {
-    if (
-      !Types.ObjectId.isValid(agentId) ||
-      !Types.ObjectId.isValid(counterId)
-    ) {
-      throw new BadRequestException('Invalid agent or counter ID');
+  async assertAgentCounter(agentId: string, counterId: string, email?: string) {
+    if (!Types.ObjectId.isValid(counterId)) {
+      throw new BadRequestException('Invalid counter ID');
     }
+    const resolvedAgentId = await this.resolveActiveAgentId(agentId, email);
 
     const assignment = await this.assignmentModel.exists({
-      agentId,
+      agentId: resolvedAgentId,
       counterId,
       isActive: true,
     });
@@ -90,16 +93,15 @@ export class AgentAssignmentsService {
     }
   }
 
-  async assertAgentService(agentId: string, serviceId: string) {
-    if (
-      !Types.ObjectId.isValid(agentId) ||
-      !Types.ObjectId.isValid(serviceId)
-    ) {
-      throw new BadRequestException('Invalid agent or service ID');
+  async assertAgentService(agentId: string, serviceId: string, email?: string) {
+    if (!Types.ObjectId.isValid(serviceId)) {
+      throw new BadRequestException('Invalid service ID');
     }
+    const resolvedAgentId = await this.resolveActiveAgentId(agentId, email);
 
     const assignment = await this.assignmentModel
-      .findOne({ agentId, isActive: true })
+      .findOne({ agentId: resolvedAgentId, isActive: true })
+      .sort({ createdAt: -1 })
       .populate('counterId');
 
     if (!assignment) {

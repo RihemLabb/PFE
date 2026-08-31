@@ -25,6 +25,7 @@ import {
 
 interface QueueActor {
   userId: string;
+  email?: string;
   role: UserRole;
 }
 
@@ -108,6 +109,7 @@ export class QueueService {
       await this.agentAssignmentsService.assertAgentService(
         actor.userId,
         serviceId,
+        actor.email,
       );
     }
   }
@@ -124,6 +126,7 @@ export class QueueService {
     await this.agentAssignmentsService.assertAgentCounter(
       actor.userId,
       entry.counterId.toString(),
+      actor.email,
     );
   }
 
@@ -466,6 +469,7 @@ export class QueueService {
       await this.agentAssignmentsService.assertAgentCounter(
         actor.userId,
         counterId,
+        actor.email,
       );
     }
 
