@@ -12,7 +12,7 @@ La stabilisation décrite dans le rapport final est intégrée sur la branche `f
 - Services, horaires, capacité, documents requis et délai d'absence.
 - Jours fermés et horaires exceptionnels globaux ou propres à un service.
 - Rendez-vous avec validation de disponibilité, anti-doublon et ticket quotidien.
-- Check-in QR sécurisé et file horodatée avec transitions atomiques.
+- Check-in réservé au personnel par caméra QR ou numéro de ticket, avec confirmation manuelle, contrôle d'affectation et file horodatée.
 - Affectations agent-guichet et contrôle du périmètre opérationnel.
 - Indicateurs réels, rapports et feedback après traitement terminé.
 
@@ -27,7 +27,7 @@ La stabilisation décrite dans le rapport final est intégrée sur la branche `f
 
 - Inscription, connexion, refresh de session et protection des routes.
 - Services, documents requis, disponibilités et réservation.
-- Ticket QR, scanner caméra, historique et annulation.
+- Ticket QR/numéro de passage présenté à l'agent, historique, annulation et suivi live après check-in.
 - Suivi live de la file avec position, personnes devant, guichet et ETA.
 - Profil utilisateur et évaluation d'un rendez-vous terminé.
 - Replanification avec revalidation des disponibilités et renouvellement du ticket QR.
@@ -35,7 +35,7 @@ La stabilisation décrite dans le rapport final est intégrée sur la branche `f
 
 ## Validation
 
-- Backend : compilation réussie et 6 suites totalisant 28 tests unitaires réussis.
+- Backend : compilation réussie et 6 suites totalisant 30 tests unitaires réussis.
 - Frontend : compilation de production réussie ; lint sans erreur bloquante.
 - Mobile : contrôle TypeScript et export Expo web de 12 routes réussis sous SDK 54.
 - CI : jobs backend, frontend et mobile définis dans `.github/workflows/ci.yml`.

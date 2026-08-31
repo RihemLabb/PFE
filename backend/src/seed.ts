@@ -85,6 +85,14 @@ async function seed() {
     role: UserRole.AGENT,
   });
 
+  const idCardAgent = await userModel.create({
+    firstName: 'Agent',
+    lastName: 'Carte ID',
+    email: 'idcard.agent@pfe.com',
+    password: hashedPassword,
+    role: UserRole.AGENT,
+  });
+
   const user = await userModel.create({
     firstName: 'Client',
     lastName: 'Test',
@@ -125,7 +133,7 @@ async function seed() {
     serviceId: service1._id,
   });
 
-  await counterModel.create({
+  const counter2 = await counterModel.create({
     name: 'Guichet Carte ID',
     number: 2,
     serviceId: service2._id,
@@ -134,6 +142,13 @@ async function seed() {
   await assignmentModel.create({
     agentId: agent._id,
     counterId: counter1._id,
+    date: new Date(),
+    isActive: true,
+  });
+
+  await assignmentModel.create({
+    agentId: idCardAgent._id,
+    counterId: counter2._id,
     date: new Date(),
     isActive: true,
   });
@@ -168,6 +183,7 @@ async function seed() {
   console.log(`   - ${admin.email} (ADMIN)`);
   console.log(`   - ${supervisor.email} (SUPERVISOR)`);
   console.log(`   - ${agent.email} (AGENT → Counter 1)`);
+  console.log(`   - ${idCardAgent.email} (AGENT → Counter 2)`);
   console.log(`   - ${user.email} (USER / mobile)`);
 
   await app.close();

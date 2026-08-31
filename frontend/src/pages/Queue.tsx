@@ -3,6 +3,9 @@ import { AnimatePresence, motion } from 'framer-motion';
 import {
   CheckCircle2,
   Clock,
+  ScanLine,
+  Search,
+  TicketCheck,
   Link2,
   Megaphone,
   Play,
@@ -18,8 +21,10 @@ import {
   finishService,
   getTodayQueue,
   markAbsent,
+  lookupTicket,
   startService,
   type QueueEntry,
+  type TicketPreview,
 } from '../api/appointmentsApi';
 import { getServices, type Service } from '../api/servicesApi';
 import { getCounters, type Counter } from '../api/countersApi';
@@ -28,6 +33,7 @@ import {
   type AgentAssignment,
 } from '../api/agentAssignmentsApi';
 import { useAuthStore } from '../store/authStore';
+import AgentQrScanner from '../components/AgentQrScanner';
 
 export default function Queue() {
   const user = useAuthStore((state) => state.user);
@@ -38,7 +44,9 @@ export default function Queue() {
   const [selectedServiceId, setSelectedServiceId] = useState('');
   const [selectedCounterId, setSelectedCounterId] = useState('');
   const [queue, setQueue] = useState<QueueEntry[]>([]);
-  const [qrToken, setQrToken] = useState('');
+  const [ticketNumber, setTicketNumber] = useState('');
+  const [ticketPreview, setTicketPreview] = useState<TicketPreview | null>(null);
+  const [scannerOpen, setScannerOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [configLoading, setConfigLoading] = useState(true);
 
@@ -128,18 +136,42 @@ export default function Queue() {
     return () => window.clearInterval(interval);
   }, [fetchQueue, selectedServiceId]);
 
-  const handleCheckIn = async () => {
-    const token = qrToken.trim();
-    if (!token) return;
-
+  const completeCheckIn = useCallback(async (identifier: { qrToken?: string; ticketNumber?: string }) => {
     setIsLoading(true);
     try {
-      await checkInUser(token);
+      await checkInUser(identifier);
       toast.success('User checked in successfully');
-      setQrToken('');
+      setTicketNumber('');
+      setTicketPreview(null);
+      setScannerOpen(false);
       await fetchQueue();
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Check-in failed');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [fetchQueue]);
+
+  const handleQrScan = useCallback((qrToken: string) => {
+    void completeCheckIn({ qrToken });
+  }, [completeCheckIn]);
+
+  const handleTicketLookup = async () => {
+    const rawIdentifier = ticketNumber.trim();
+    const normalized = rawIdentifier.toUpperCase();
+    if (!normalized) return;
+    if (/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(rawIdentifier)) {
+      await completeCheckIn({ qrToken: rawIdentifier });
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const preview = await lookupTicket(normalized);
+      setTicketNumber(normalized);
+      setTicketPreview(preview);
+    } catch (err: any) {
+      setTicketPreview(null);
+      toast.error(err.response?.data?.message || 'Ticket not found');
     } finally {
       setIsLoading(false);
     }
@@ -244,6 +276,7 @@ export default function Queue() {
     assignment && typeof assignment.counterId.serviceId !== 'string'
       ? assignment.counterId.serviceId.name
       : 'Assigned service';
+  const canCheckIn = !isAgent || Boolean(assignment);
 
   return (
     <div className="space-y-8">
@@ -379,27 +412,64 @@ export default function Queue() {
         >
           <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
             <QrCode className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-            Check-in User
+            Visitor Check-in
           </h3>
-          <div className="flex gap-3">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
+            Scan the visitor's QR ticket or enter the visible ticket number.
+          </p>
+          <div className="grid sm:grid-cols-[auto_1fr_auto] gap-3">
+            <button
+              type="button"
+              onClick={() => setScannerOpen(true)}
+              disabled={!canCheckIn || isLoading}
+              className="inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-xl font-semibold disabled:opacity-50"
+            >
+              <ScanLine className="w-5 h-5" /> Scan QR
+            </button>
             <input
               type="text"
-              value={qrToken}
-              onChange={(event) => setQrToken(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') handleCheckIn();
+              value={ticketNumber}
+              onChange={(event) => {
+                setTicketNumber(event.target.value.toUpperCase());
+                setTicketPreview(null);
               }}
-              placeholder="Scan or paste QR token..."
-              className="form-input"
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') void handleTicketLookup();
+              }}
+              placeholder="Ticket number or scanner input"
+              disabled={!canCheckIn}
+              className="form-input uppercase"
             />
             <button
-              onClick={handleCheckIn}
-              disabled={isLoading || !qrToken.trim()}
-              className="bg-gray-900 dark:bg-indigo-600 text-white px-8 py-3 rounded-xl font-semibold disabled:opacity-50"
+              type="button"
+              onClick={() => void handleTicketLookup()}
+              disabled={!canCheckIn || isLoading || !ticketNumber.trim()}
+              className="inline-flex items-center justify-center gap-2 border border-gray-300 dark:border-gray-700 px-5 py-3 rounded-xl font-semibold text-gray-800 dark:text-gray-100 disabled:opacity-50"
             >
-              {isLoading ? 'Checking...' : 'Check In'}
+              <Search className="w-4 h-4" /> Find ticket
             </button>
           </div>
+
+          {ticketPreview && (
+            <div className="mt-5 rounded-2xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/70 dark:bg-indigo-950/20 p-5">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
+                <div className="flex gap-4">
+                  <div className="w-12 h-12 shrink-0 rounded-2xl bg-indigo-600 text-white flex items-center justify-center">
+                    <TicketCheck className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-lg text-gray-900 dark:text-white">{ticketPreview.ticketNumber} · {ticketPreview.userName}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{ticketPreview.serviceName} · {new Date(ticketPreview.date).toLocaleDateString()} at {ticketPreview.timeSlot}</p>
+                    <p className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-300 mt-2">Status: {ticketPreview.status}</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setTicketPreview(null)} className="px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 font-semibold">Cancel</button>
+                  <button type="button" disabled={isLoading} onClick={() => void completeCheckIn({ ticketNumber: ticketPreview.ticketNumber })} className="px-5 py-2.5 rounded-xl bg-emerald-600 text-white font-bold disabled:opacity-50">Confirm check-in</button>
+                </div>
+              </div>
+            </div>
+          )}
         </motion.div>
 
         <motion.div
@@ -507,6 +577,13 @@ export default function Queue() {
           </AnimatePresence>
         </div>
       </motion.div>
+
+      <AgentQrScanner
+        open={scannerOpen}
+        disabled={isLoading}
+        onClose={() => setScannerOpen(false)}
+        onScan={handleQrScan}
+      />
     </div>
   );
 }

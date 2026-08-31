@@ -25,14 +25,6 @@
     "plugins": [
       "expo-router",
       [
-        "expo-camera",
-        {
-          "cameraPermission": "Allow Smart Queue to use your camera to scan appointment QR tickets.",
-          "microphonePermission": false,
-          "recordAudioAndroid": false
-        }
-      ],
-      [
         "expo-splash-screen",
         {
           "backgroundColor": "#208AEF",

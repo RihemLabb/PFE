@@ -85,19 +85,6 @@ export default function Home() {
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={styles.scannerCard} onPress={() => router.push('/scanner')}>
-        <View style={styles.scannerIcon}>
-          <Text style={styles.scannerIconText}>▣</Text>
-        </View>
-        <View style={styles.scannerCopy}>
-          <Text style={styles.scannerTitle}>Scan QR to check in</Text>
-          <Text style={styles.scannerText}>
-            Use your camera to validate an appointment ticket when you arrive.
-          </Text>
-        </View>
-        <Text style={styles.scannerArrow}>→</Text>
-      </TouchableOpacity>
-
       {loading ? (
         <ActivityIndicator
           size="large"
@@ -193,30 +180,6 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   inactivePillText: { color: '#64748B', fontSize: 13, fontWeight: '600' },
-  scannerCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 24,
-    marginTop: 18,
-    backgroundColor: '#EEF2FF',
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#C7D2FE',
-  },
-  scannerIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
-    backgroundColor: '#4F46E5',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scannerIconText: { color: '#FFFFFF', fontSize: 23, fontWeight: '900' },
-  scannerCopy: { flex: 1, marginLeft: 13 },
-  scannerTitle: { color: '#312E81', fontSize: 15, fontWeight: '900' },
-  scannerText: { color: '#4F46E5', fontSize: 11, lineHeight: 16, marginTop: 3 },
-  scannerArrow: { color: '#4F46E5', fontSize: 20, marginLeft: 10 },
   loader: { marginTop: 100 },
   list: { padding: 24, paddingBottom: 100 },
   emptyList: { flexGrow: 1, justifyContent: 'center', padding: 24 },

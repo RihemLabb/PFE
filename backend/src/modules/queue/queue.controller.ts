@@ -14,7 +14,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { CheckInDto } from './dto/check-in.dto';
+import { CheckInDto, TicketLookupDto } from './dto/check-in.dto';
 import { QueueService } from './queue.service';
 
 @ApiTags('Queue')
@@ -58,11 +58,23 @@ export class QueueController {
   @Post('checkin')
   @RateLimit(30, 60 * 1000)
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.USER, UserRole.AGENT, UserRole.ADMIN)
+  @Roles(UserRole.AGENT, UserRole.ADMIN)
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Check in an authorized user via QR token' })
+  @ApiOperation({
+    summary: 'Agent check-in using a QR token or visible ticket number',
+  })
   checkIn(@Body() checkInDto: CheckInDto, @CurrentUser() user: any) {
-    return this.queueService.checkIn(checkInDto.qrToken, user);
+    return this.queueService.checkIn(checkInDto, user);
+  }
+
+  @Post('ticket-lookup')
+  @RateLimit(60, 60 * 1000)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.AGENT, UserRole.ADMIN)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Preview a same-day ticket before manual check-in' })
+  lookupTicket(@Body() body: TicketLookupDto, @CurrentUser() user: any) {
+    return this.queueService.lookupTicket(body.ticketNumber, user);
   }
 
   @Post('next')
