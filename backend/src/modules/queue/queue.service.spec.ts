@@ -57,6 +57,7 @@ describe('QueueService', () => {
 
   const assignedAgent = () => ({
     userId: new Types.ObjectId().toString(),
+    email: 'idcard.agent@pfe.com',
     role: UserRole.AGENT,
   });
 
