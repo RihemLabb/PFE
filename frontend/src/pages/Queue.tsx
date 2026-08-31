@@ -276,7 +276,7 @@ export default function Queue() {
     assignment && typeof assignment.counterId.serviceId !== 'string'
       ? assignment.counterId.serviceId.name
       : 'Assigned service';
-  const canCheckIn = !isAgent || Boolean(assignment);
+  const needsAssignment = isAgent && !assignment;
 
   return (
     <div className="space-y-8">
@@ -417,11 +417,19 @@ export default function Queue() {
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
             Scan the visitor's QR ticket or enter the visible ticket number.
           </p>
+          {needsAssignment && (
+            <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <p className="font-bold">Counter assignment required to complete check-in</p>
+              <p className="mt-1">
+                You can enter or scan a ticket, but an administrator must assign this agent in Staff → Counter assignments before the ticket can join the queue.
+              </p>
+            </div>
+          )}
           <div className="grid sm:grid-cols-[auto_1fr_auto] gap-3">
             <button
               type="button"
               onClick={() => setScannerOpen(true)}
-              disabled={!canCheckIn || isLoading}
+              disabled={isLoading}
               className="inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-xl font-semibold disabled:opacity-50"
             >
               <ScanLine className="w-5 h-5" /> Scan QR
@@ -437,13 +445,13 @@ export default function Queue() {
                 if (event.key === 'Enter') void handleTicketLookup();
               }}
               placeholder="Ticket number or scanner input"
-              disabled={!canCheckIn}
+              disabled={isLoading}
               className="form-input uppercase"
             />
             <button
               type="button"
               onClick={() => void handleTicketLookup()}
-              disabled={!canCheckIn || isLoading || !ticketNumber.trim()}
+              disabled={isLoading || !ticketNumber.trim()}
               className="inline-flex items-center justify-center gap-2 border border-gray-300 dark:border-gray-700 px-5 py-3 rounded-xl font-semibold text-gray-800 dark:text-gray-100 disabled:opacity-50"
             >
               <Search className="w-4 h-4" /> Find ticket

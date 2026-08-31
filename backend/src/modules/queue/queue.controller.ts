@@ -73,8 +73,8 @@ export class QueueController {
   @Roles(UserRole.AGENT, UserRole.ADMIN)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Preview a same-day ticket before manual check-in' })
-  lookupTicket(@Body() body: TicketLookupDto, @CurrentUser() user: any) {
-    return this.queueService.lookupTicket(body.ticketNumber, user);
+  lookupTicket(@Body() body: TicketLookupDto) {
+    return this.queueService.lookupTicket(body.ticketNumber);
   }
 
   @Post('next')

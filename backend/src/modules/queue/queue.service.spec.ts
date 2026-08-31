@@ -204,9 +204,7 @@ describe('QueueService', () => {
         .mockResolvedValueOnce(appointment);
       appointmentModel.findOne.mockReturnValue(query);
 
-      await expect(
-        service.lookupTicket(' idc-001 ', assignedAgent()),
-      ).resolves.toEqual(
+      await expect(service.lookupTicket(' idc-001 ')).resolves.toEqual(
         expect.objectContaining({
           ticketNumber: 'IDC-001',
           userName: 'Client Test',
