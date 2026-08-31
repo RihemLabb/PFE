@@ -125,7 +125,12 @@ export default function Staff() {
     setSaving(true);
     try {
       await assignAgent(selectedAgentId, selectedCounterId);
-      toast.success('Agent assigned to counter');
+      const selectedAgent = activeAgents.find(
+        (agent) => agent._id === selectedAgentId,
+      );
+      toast.success(
+        `Counter assigned to ${selectedAgent?.email ?? 'the selected agent'}`,
+      );
       await loadData();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Assignment failed');
@@ -254,7 +259,7 @@ export default function Staff() {
             {activeAgents.length === 0 && <option value="">No active agents</option>}
             {activeAgents.map((agent) => (
               <option key={agent._id} value={agent._id}>
-                {agent.firstName} {agent.lastName}
+                {agent.firstName} {agent.lastName} — {agent.email}
               </option>
             ))}
           </select>
@@ -292,6 +297,9 @@ export default function Staff() {
               <div>
                 <p className="font-bold text-gray-900 dark:text-gray-100">
                   {assignment.agentId.firstName} {assignment.agentId.lastName}
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  {assignment.agentId.email}
                 </p>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                   {counterLabel(assignment.counterId)}
