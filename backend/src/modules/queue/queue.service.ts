@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -18,6 +17,7 @@ import { QueueStatus } from '../../common/enums/queue-status.enum';
 import { AppointmentStatus } from '../../common/enums/appointment-status.enum';
 import { CounterStatus } from '../../common/enums/counter-status.enum';
 import { UserRole } from '../../common/enums/user-role.enum';
+import { CheckInDto } from './dto/check-in.dto';
 import {
   getBusinessDayRange,
   getDateKeyInTimeZone,
@@ -295,19 +295,80 @@ export class QueueService {
     };
   }
 
-  async checkIn(qrToken: string, actor: QueueActor) {
-    const appointment = await this.appointmentModel.findOne({ qrToken });
-    if (!appointment) {
-      throw new NotFoundException(
-        'Invalid QR token. Please check your ticket.',
+  private normalizeTicketNumber(ticketNumber: string) {
+    return ticketNumber.trim().toUpperCase();
+  }
+
+  private validateCheckInIdentifier(identifier: CheckInDto) {
+    const qrToken = identifier.qrToken?.trim();
+    const ticketNumber = identifier.ticketNumber
+      ? this.normalizeTicketNumber(identifier.ticketNumber)
+      : undefined;
+
+    if ((!qrToken && !ticketNumber) || (qrToken && ticketNumber)) {
+      throw new BadRequestException(
+        'Provide exactly one QR token or ticket number',
       );
     }
 
-    if (
-      actor.role === UserRole.USER &&
-      appointment.userId.toString() !== actor.userId
-    ) {
-      throw new ForbiddenException('This QR ticket belongs to another user');
+    return { qrToken, ticketNumber };
+  }
+
+  private async findCheckInAppointment(identifier: CheckInDto) {
+    const { qrToken, ticketNumber } =
+      this.validateCheckInIdentifier(identifier);
+    if (qrToken) return this.appointmentModel.findOne({ qrToken });
+
+    const { start, end } = this.getDayRange();
+    return this.appointmentModel.findOne({
+      ticketNumber,
+      date: { $gte: start, $lt: end },
+    });
+  }
+
+  async lookupTicket(ticketNumber: string, actor: QueueActor) {
+    const normalizedTicketNumber = this.normalizeTicketNumber(ticketNumber);
+    const { start, end } = this.getDayRange();
+    const appointment = await this.appointmentModel
+      .findOne({
+        ticketNumber: normalizedTicketNumber,
+        date: { $gte: start, $lt: end },
+      })
+      .populate('userId', 'firstName lastName')
+      .populate('serviceId', 'name');
+
+    if (!appointment) {
+      throw new NotFoundException(
+        'No appointment with this ticket number today',
+      );
+    }
+
+    const populatedService = appointment.serviceId as any;
+    const serviceId =
+      populatedService?._id?.toString?.() ?? appointment.serviceId.toString();
+    await this.authorizeAgentService(actor, serviceId);
+
+    const populatedUser = appointment.userId as any;
+    return {
+      appointmentId: appointment._id,
+      ticketNumber: appointment.ticketNumber,
+      userName: populatedUser?.firstName
+        ? `${populatedUser.firstName} ${populatedUser.lastName ?? ''}`.trim()
+        : 'Appointment holder',
+      serviceId,
+      serviceName: populatedService?.name ?? 'Service',
+      date: appointment.date,
+      timeSlot: appointment.timeSlot,
+      status: appointment.status,
+    };
+  }
+
+  async checkIn(identifier: CheckInDto, actor: QueueActor) {
+    const appointment = await this.findCheckInAppointment(identifier);
+    if (!appointment) {
+      throw new NotFoundException(
+        'Ticket not found. Check the QR code or ticket number.',
+      );
     }
     await this.authorizeAgentService(actor, appointment.serviceId.toString());
 

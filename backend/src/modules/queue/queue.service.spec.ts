@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import { BadRequestException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { QueueService } from './queue.service';
 import { QueueStatus } from '../../common/enums/queue-status.enum';
@@ -55,12 +55,32 @@ describe('QueueService', () => {
     save: jest.fn(),
   });
 
-  const ownerActor = (appointment: ReturnType<typeof todayAppointment>) => ({
-    userId: appointment.userId.toString(),
-    role: UserRole.USER,
+  const assignedAgent = () => ({
+    userId: new Types.ObjectId().toString(),
+    role: UserRole.AGENT,
   });
 
   describe('check-in', () => {
+    it('finds a same-day appointment by normalized ticket number', async () => {
+      const appointment = todayAppointment();
+      const existingEntry = {
+        _id: new Types.ObjectId(),
+        appointmentId: appointment._id,
+        status: QueueStatus.WAITING,
+        position: 1,
+      };
+      appointmentModel.findOne.mockResolvedValue(appointment);
+      queueEntryModel.findOne.mockResolvedValue(existingEntry);
+
+      await expect(
+        service.checkIn({ ticketNumber: ' idc-001 ' }, assignedAgent()),
+      ).resolves.toBe(existingEntry);
+
+      expect(appointmentModel.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({ ticketNumber: 'IDC-001' }),
+      );
+    });
+
     it('returns the same waiting entry when the QR is scanned twice', async () => {
       const appointment = todayAppointment();
       const existingEntry = {
@@ -74,7 +94,7 @@ describe('QueueService', () => {
       queueEntryModel.findOne.mockResolvedValue(existingEntry);
 
       await expect(
-        service.checkIn('same-qr-token', ownerActor(appointment)),
+        service.checkIn({ qrToken: 'same-qr-token' }, assignedAgent()),
       ).resolves.toBe(existingEntry);
       expect(queueEntryModel.countDocuments).not.toHaveBeenCalled();
     });
@@ -106,7 +126,7 @@ describe('QueueService', () => {
       });
 
       await expect(
-        service.checkIn('concurrent-ticket', ownerActor(appointment)),
+        service.checkIn({ qrToken: 'concurrent-ticket' }, assignedAgent()),
       ).resolves.toBe(winnerEntry);
 
       expect(entrySave).toHaveBeenCalledTimes(1);
@@ -125,20 +145,17 @@ describe('QueueService', () => {
       });
 
       await expect(
-        service.checkIn('finished-ticket-token', ownerActor(appointment)),
+        service.checkIn({ qrToken: 'finished-ticket-token' }, assignedAgent()),
       ).rejects.toBeInstanceOf(BadRequestException);
     });
 
-    it('rejects a user scanning another users QR ticket', async () => {
-      const appointment = todayAppointment();
-      appointmentModel.findOne.mockResolvedValue(appointment);
-
+    it('rejects requests containing both a QR token and ticket number', async () => {
       await expect(
-        service.checkIn('someone-else-ticket', {
-          userId: new Types.ObjectId().toString(),
-          role: UserRole.USER,
-        }),
-      ).rejects.toBeInstanceOf(ForbiddenException);
+        service.checkIn(
+          { qrToken: 'token', ticketNumber: 'IDC-001' },
+          assignedAgent(),
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
     });
 
     it('treats the Tunis calendar date as today near the UTC day boundary', async () => {
@@ -162,11 +179,41 @@ describe('QueueService', () => {
       queueEntryModel.findOne.mockResolvedValue(existingEntry);
 
       await expect(
-        service.checkIn('tunis-midnight-ticket', {
-          userId: appointment.userId.toString(),
-          role: UserRole.USER,
-        }),
+        service.checkIn({ qrToken: 'tunis-midnight-ticket' }, assignedAgent()),
       ).resolves.toBe(existingEntry);
+    });
+  });
+
+  describe('ticket lookup', () => {
+    it('returns a safe same-day preview for manual agent confirmation', async () => {
+      const serviceId = new Types.ObjectId();
+      const appointment = {
+        _id: new Types.ObjectId(),
+        userId: { firstName: 'Client', lastName: 'Test' },
+        serviceId: { _id: serviceId, name: 'ID Card Issuance' },
+        ticketNumber: 'IDC-001',
+        date: new Date(`${getDateKeyInTimeZone()}T00:00:00.000Z`),
+        timeSlot: '10:10',
+        status: AppointmentStatus.CONFIRMED,
+      };
+      const query: any = {
+        populate: jest.fn(),
+      };
+      query.populate
+        .mockReturnValueOnce(query)
+        .mockResolvedValueOnce(appointment);
+      appointmentModel.findOne.mockReturnValue(query);
+
+      await expect(
+        service.lookupTicket(' idc-001 ', assignedAgent()),
+      ).resolves.toEqual(
+        expect.objectContaining({
+          ticketNumber: 'IDC-001',
+          userName: 'Client Test',
+          serviceName: 'ID Card Issuance',
+          timeSlot: '10:10',
+        }),
+      );
     });
   });
 

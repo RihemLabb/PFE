@@ -11,6 +11,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@zxing/browser": "^0.1.5",
     "axios": "^1.18.0",
     "framer-motion": "^12.42.0",
     "jspdf": "^4.2.1",

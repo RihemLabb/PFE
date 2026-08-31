@@ -11,7 +11,8 @@ Audit réalisé à partir de `versionfinale.docx` et de la branche de stabilisat
 | Jours fermés et horaires exceptionnels | module Holidays et page `Holidays.tsx` | Conforme |
 | Affectation agent-guichet | module AgentAssignments et page `Staff.tsx` | Conforme |
 | Réservation et ticket QR | module Appointments et écrans Booking/Ticket | Conforme |
-| Scan QR par caméra | `mobile/src/app/scanner.tsx`, `expo-camera` | Conforme |
+| Check-in QR par caméra agent | `frontend/src/components/AgentQrScanner.tsx`, `frontend/src/pages/Queue.tsx` | Conforme |
+| Check-in manuel par numéro visible | `POST /queue/ticket-lookup`, `POST /queue/checkin` | Conforme |
 | File et transitions horodatées | module Queue et tests unitaires | Conforme |
 | Suivi position/personnes devant/ETA | `/queue/my-status`, `queue-status.tsx` | Conforme |
 | Tableau de bord réel | statistiques Appointments et `Dashboard.tsx` | Conforme |
@@ -19,7 +20,7 @@ Audit réalisé à partir de `versionfinale.docx` et de la branche de stabilisat
 | Feedback et satisfaction | module Feedback, écrans Feedback/Reports | Conforme |
 | Export CSV des rapports | `frontend/src/pages/Reports.tsx` | Conforme |
 | Profil mobile | `mobile/src/app/profile.tsx` et module Users | Conforme |
-| 6 suites / 28 tests unitaires | tests Auth, Appointments, Queue, Feedback, RateLimit et App | Conforme |
+| 6 suites / 30 tests unitaires | tests Auth, Appointments, Queue, Feedback, RateLimit et App | Conforme |
 | CI backend/web/mobile | `.github/workflows/ci.yml` | Conforme |
 | Expo SDK 54 | `mobile/package.json` et lockfile | Conforme |
 | Replanification | endpoint sécurisé et action mobile avec nouvelle disponibilité/QR/ticket | Complété |

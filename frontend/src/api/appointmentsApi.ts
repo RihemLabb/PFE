@@ -53,8 +53,27 @@ export const getPublicQueueDisplay = async (
   return data;
 };
 
-export const checkInUser = async (qrToken: string): Promise<QueueEntry> => {
-  const { data } = await api.post('/queue/checkin', { qrToken });
+export interface TicketPreview {
+  appointmentId: string;
+  ticketNumber: string;
+  userName: string;
+  serviceId: string;
+  serviceName: string;
+  date: string;
+  timeSlot: string;
+  status: string;
+}
+
+export const checkInUser = async (identifier: {
+  qrToken?: string;
+  ticketNumber?: string;
+}): Promise<QueueEntry> => {
+  const { data } = await api.post('/queue/checkin', identifier);
+  return data;
+};
+
+export const lookupTicket = async (ticketNumber: string): Promise<TicketPreview> => {
+  const { data } = await api.post('/queue/ticket-lookup', { ticketNumber });
   return data;
 };
 

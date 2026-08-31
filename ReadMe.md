@@ -25,7 +25,7 @@ L'application mobile utilise **Expo SDK 54**. Utilisez les versions verrouillée
 - Rendez-vous avec contrôle de capacité par date/créneau et ticket QR unique
 - Annulation protégée par propriétaire/rôle
 - Guichets et affectations agent → guichet
-- Check-in QR, appel du prochain ticket, début/fin de service et absence
+- Check-in agent par caméra QR ou numéro de ticket, appel du prochain ticket, début/fin de service et absence
 - Horodatages `checkInTime`, `calledTime`, `serviceStartTime`, `finishTime`
 - Statistiques réelles du dashboard et temps d'attente moyen
 - Suivi personnel de file avec position et ETA via `GET /queue/my-status`
@@ -51,6 +51,7 @@ L'application mobile utilise **Expo SDK 54**. Utilisez les versions verrouillée
 - Sélection de date et créneaux réellement disponibles
 - Affichage des documents requis
 - Réservation et ticket QR
+- Présentation du QR ou du numéro de ticket à l'agent lors de l'arrivée
 - Historique des rendez-vous
 - Réouverture du QR depuis l'historique
 - Annulation d'un rendez-vous confirmé
@@ -140,7 +141,17 @@ Après `npm run seed`, tous les comptes utilisent le mot de passe `password123` 
 | Admin | `admin@pfe.com` | Administration complète |
 | Supervisor | `supervisor@pfe.com` | Dashboard et rendez-vous |
 | Agent | `agent@pfe.com` | File d'attente, affecté au guichet 1 |
+| Agent carte ID | `idcard.agent@pfe.com` | File d'attente, affecté au guichet 2 |
 | User | `user@pfe.com` | Application mobile |
+
+## Parcours de check-in
+
+1. L'usager réserve depuis l'application mobile et reçoit un QR ainsi qu'un numéro lisible (`PAS-001`, `IDC-001`, etc.).
+2. À son arrivée le jour prévu, il présente ce ticket à l'agent ; l'application usager ne contient pas de scanner.
+3. L'agent ouvre la page **File d'attente** du portail responsive et scanne le QR avec la caméra du poste, de la tablette ou du téléphone. Un lecteur QR USB/Bluetooth peut également saisir le jeton.
+4. Si la caméra n'est pas disponible, l'agent saisit le numéro visible, vérifie le nom, le service, la date et l'heure, puis confirme le check-in.
+5. Le backend vérifie la date, le statut et l'affectation service/guichet de l'agent avant de créer une entrée `WAITING` sans doublon.
+6. L'agent appelle, démarre et termine la prise en charge ; l'usager suit ensuite sa position et le guichet depuis l'écran **Live Queue**.
 
 ## Commandes utiles
 
