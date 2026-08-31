@@ -354,7 +354,7 @@ export default function Queue() {
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-800">
               <p className="font-bold">No active counter assignment</p>
               <p className="text-sm mt-1">
-                Ask an administrator to assign your agent account to a counter before calling tickets.
+                Ask an administrator to assign <strong>{user?.email}</strong> to a counter before calling tickets.
               </p>
               <button
                 type="button"

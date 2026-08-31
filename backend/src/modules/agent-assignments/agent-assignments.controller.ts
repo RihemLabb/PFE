@@ -36,7 +36,7 @@ export class AgentAssignmentsController {
   @Roles(UserRole.AGENT)
   @ApiOperation({ summary: 'Get the current agent counter assignment' })
   findMine(@CurrentUser() user: any) {
-    return this.agentAssignmentsService.findMine(user.userId);
+    return this.agentAssignmentsService.findMine(user.userId, user.email);
   }
 
   @Post()

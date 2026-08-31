@@ -41,14 +41,32 @@ export class AgentAssignmentsService {
     );
   }
 
-  async findMine(agentId: string) {
-    if (!Types.ObjectId.isValid(agentId)) {
-      throw new BadRequestException('Invalid agent ID');
+  async findMine(agentId: string, email?: string) {
+    const identityFilters: Record<string, unknown>[] = [];
+    if (Types.ObjectId.isValid(agentId)) {
+      identityFilters.push({ _id: new Types.ObjectId(agentId) });
+    }
+    if (email?.trim()) {
+      identityFilters.push({ email: email.trim().toLowerCase() });
+    }
+    if (identityFilters.length === 0) {
+      throw new BadRequestException('Invalid agent identity');
     }
 
+    const agent = await this.userModel
+      .findOne({
+        $or: identityFilters,
+        role: UserRole.AGENT,
+        isActive: true,
+      })
+      .select('_id');
+    if (!agent) throw new NotFoundException('Agent account not found');
+
     return this.populateAssignment(
-      this.assignmentModel.findOne({ agentId, isActive: true }),
-    );
+      this.assignmentModel
+        .findOne({ agentId: agent._id, isActive: true })
+        .sort({ createdAt: -1 }),
+    ).exec();
   }
 
   async assertAgentCounter(agentId: string, counterId: string) {
