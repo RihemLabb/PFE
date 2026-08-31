@@ -50,25 +50,37 @@ export default function Queue() {
   const [isLoading, setIsLoading] = useState(false);
   const [configLoading, setConfigLoading] = useState(true);
 
+  const applyAgentAssignment = useCallback(
+    (currentAssignment: AgentAssignment | null) => {
+      setAssignment(currentAssignment);
+
+      if (!currentAssignment) {
+        setSelectedServiceId('');
+        setSelectedCounterId('');
+        return;
+      }
+
+      const serviceRef = currentAssignment.counterId.serviceId;
+      const serviceId =
+        typeof serviceRef === 'string' ? serviceRef : serviceRef._id;
+      setSelectedServiceId(serviceId);
+      setSelectedCounterId(currentAssignment.counterId._id);
+    },
+    [],
+  );
+
+  const refreshAgentAssignment = useCallback(async () => {
+    const currentAssignment = await getMyAgentAssignment();
+    applyAgentAssignment(currentAssignment);
+    return currentAssignment;
+  }, [applyAgentAssignment]);
+
   useEffect(() => {
     const loadConfiguration = async () => {
       setConfigLoading(true);
       try {
         if (isAgent) {
-          const currentAssignment = await getMyAgentAssignment();
-          setAssignment(currentAssignment);
-
-          if (!currentAssignment) {
-            setSelectedServiceId('');
-            setSelectedCounterId('');
-            return;
-          }
-
-          const serviceRef = currentAssignment.counterId.serviceId;
-          const serviceId =
-            typeof serviceRef === 'string' ? serviceRef : serviceRef._id;
-          setSelectedServiceId(serviceId);
-          setSelectedCounterId(currentAssignment.counterId._id);
+          await refreshAgentAssignment();
         } else {
           const [serviceData, counterData] = await Promise.all([
             getServices(),
@@ -89,7 +101,22 @@ export default function Queue() {
     };
 
     loadConfiguration();
-  }, [isAgent]);
+  }, [isAgent, refreshAgentAssignment]);
+
+  useEffect(() => {
+    if (!isAgent || assignment) return;
+
+    const refresh = () => {
+      void refreshAgentAssignment().catch(() => undefined);
+    };
+    const interval = window.setInterval(refresh, 3000);
+    window.addEventListener('focus', refresh);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refresh);
+    };
+  }, [assignment, isAgent, refreshAgentAssignment]);
 
   const serviceCounters = useMemo(
     () =>
@@ -329,6 +356,24 @@ export default function Queue() {
               <p className="text-sm mt-1">
                 Ask an administrator to assign your agent account to a counter before calling tickets.
               </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setConfigLoading(true);
+                  void refreshAgentAssignment()
+                    .then((currentAssignment) => {
+                      if (currentAssignment) toast.success('Counter assignment loaded');
+                      else toast.error('No active assignment was found for this agent');
+                    })
+                    .catch((error: any) => {
+                      toast.error(error.response?.data?.message || 'Could not refresh assignment');
+                    })
+                    .finally(() => setConfigLoading(false));
+                }}
+                className="mt-3 rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-bold text-amber-900 hover:bg-amber-100"
+              >
+                Refresh assignment
+              </button>
             </div>
           )
         ) : (
