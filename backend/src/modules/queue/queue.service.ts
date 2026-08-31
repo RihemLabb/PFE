@@ -326,7 +326,7 @@ export class QueueService {
     });
   }
 
-  async lookupTicket(ticketNumber: string, actor: QueueActor) {
+  async lookupTicket(ticketNumber: string) {
     const normalizedTicketNumber = this.normalizeTicketNumber(ticketNumber);
     const { start, end } = this.getDayRange();
     const appointment = await this.appointmentModel
@@ -346,7 +346,6 @@ export class QueueService {
     const populatedService = appointment.serviceId as any;
     const serviceId =
       populatedService?._id?.toString?.() ?? appointment.serviceId.toString();
-    await this.authorizeAgentService(actor, serviceId);
 
     const populatedUser = appointment.userId as any;
     return {
